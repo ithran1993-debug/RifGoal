@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'theme/app_theme.dart';
 import 'screens/home_screen.dart';
-
+import 'screens/standings_screen.dart';
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
@@ -43,13 +43,12 @@ class _MainShellState extends State<MainShell> {
   int _currentIndex = 0;
 
   final List<Widget> _pages = [
-    const HomeScreen(),
-    const Center(child: Text('الدوريات', style: TextStyle(color: Colors.grey))),
-    const Center(child: Text('الترتيب', style: TextStyle(color: Colors.grey))),
-    const Center(child: Text('الأخبار', style: TextStyle(color: Colors.grey))),
-    const Center(child: Text('المزيد', style: TextStyle(color: Colors.grey))),
-  ];
-
+  const HomeScreen(),
+  const Center(child: Text('الدوريات', style: TextStyle(color: Colors.grey))),
+  const StandingsScreen(),
+  const Center(child: Text('الأخبار', style: TextStyle(color: Colors.grey))),
+  const Center(child: Text('المزيد', style: TextStyle(color: Colors.grey))),
+];
   @override
   Widget build(BuildContext context) {
     return Scaffold(
