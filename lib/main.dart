@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'theme/app_theme.dart';
 import 'screens/home_screen.dart';
 import 'screens/standings_screen.dart';
+import 'screens/news_screen.dart';
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
@@ -46,7 +47,7 @@ class _MainShellState extends State<MainShell> {
   const HomeScreen(),
   const Center(child: Text('الدوريات', style: TextStyle(color: Colors.grey))),
   const StandingsScreen(),
-  const Center(child: Text('الأخبار', style: TextStyle(color: Colors.grey))),
+  const NewsScreen(),
   const Center(child: Text('المزيد', style: TextStyle(color: Colors.grey))),
 ];
   @override
