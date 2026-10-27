@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'سمات/app_theme.dart';
-import 'الشاشات/home_screen.dart';
-import 'الشاشات/standings_screen.dart';
-import 'الشاشات/news_screen.dart';
+import 'theme/app_theme.dart';
+import 'screens/home_screen.dart';
+import 'screens/standings_screen.dart';
+import 'screens/news_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
