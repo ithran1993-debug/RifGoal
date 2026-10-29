@@ -99,5 +99,12 @@ class MatchService {
     }
   }
 
-  static Future<List<Match>> getByLeague(String league) async {
-    final matches = await getMatches();
+    static Future<List<Match>> getByLeague(String league) async {
+    try {
+      final matches = await getMatches();
+      return matches.where((match) => match.league == league).toList();
+    } catch (e) {
+      return [];
+    }
+  }
+}
