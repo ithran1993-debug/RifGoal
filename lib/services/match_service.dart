@@ -63,7 +63,7 @@ class MatchService {
 
           String scoreText = 'vs';
           if (score['home'] != null && score['away'] != null) {
-            scoreText = '${score['home']} - ${score['away']}';
+            scoreText = '${score['home']} -${score['away']}';
           }
 
           // وقت المباراة
@@ -74,7 +74,7 @@ class MatchService {
               try {
                 final dt = DateTime.parse(utcDate).toLocal();
                 statusText = '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
-
+              } catch (_) {}
             }
           }
 
@@ -95,26 +95,4 @@ class MatchService {
             statusClass: _mapStatus(status),
             minute: null,
             stadium: m['venue'] ?? 'غير محدد',
-            referee: (m['referees'] != null && (m['referees'] as List).isNotEmpty)
-                ? (m['referees'][0]['name'] ?? 'غير محدد')
-                : 'غير محدد',
-            round: m['matchday'] != null ? 'الجولة ${m['matchday']}' : '',
-            events: [],
-          );
-        }).toList();
-      } else {
-        print('خطأ API: ${response.statusCode}');
-        return [];
-      }
-    } catch (e) {
-      print('خطأ: $e');
-      return [];
-    }
-  }
-
-  static Future<List<Match>> getByLeague(String league) async {
-    final matches = await getMatches();
-    if (league == 'all') return matches;
-    return matches.where((m) => m.league == league).toList();
-  }
-}
+            referee: (m['referees'] != null
