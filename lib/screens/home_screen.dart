@@ -47,8 +47,21 @@ class _HomeScreenState extends State<HomeScreen> {
     if (diff == 1) return 'غدًا';
     if (diff == -1) return 'أمس';
 
-    const days = ['الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت', 'الأحد'];
+    const days = [
+      'الإثنين',
+      'الثلاثاء',
+      'الأربعاء',
+      'الخميس',
+      'الجمعة',
+      'السبت',
+      'الأحد',
+    ];
     return '${days[date.weekday - 1]}  \( {date.day}/ \){date.month}';
+  }
+
+  // مفتاح للترتيب الزمني
+  String _dayKey(DateTime date) {
+    return '\( {date.year}- \){date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
   }
 
   @override
@@ -91,7 +104,6 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
 
-        // قائمة المباريات
         Expanded(
           child: FutureBuilder<List<Match>>(
             future: _matchesFuture,
@@ -115,10 +127,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 );
               }
 
-              final allMatches = snapshot.data!;
-              final matches = selectedLeague == 'all'
-                  ? allMatches
-                  : allMatches.where((m) => m.league == selectedLeague).toList();
+              var matches = snapshot.data!;
+              if (selectedLeague != 'all') {
+                matches = matches.where((m) => m.league == selectedLeague).toList();
+              }
 
               if (matches.isEmpty) {
                 return const Center(
@@ -126,97 +138,81 @@ class _HomeScreenState extends State<HomeScreen> {
                 );
               }
 
-              // تجميع حسب اليوم
-              final Map<String, List<Match>> groupedByDay = {};
+              // تجميع حسب اليوم مع ترتيب زمني
+              final Map<String, List<Match>> grouped = {};
+              final Map<String, String> keyToLabel = {};
+
               for (var match in matches) {
-                final label = match.date != null
-                    ? _getDayLabel(match.date!)
-                    : 'غير محدد';
-                groupedByDay.putIfAbsent(label, () => []).add(match);
+                final date = match.date ?? DateTime.now();
+                final key = _dayKey(date);
+                final label = _getDayLabel(date);
+                keyToLabel[key] = label;
+                grouped.putIfAbsent(key, () => []).add(match);
               }
+
+              // ترتيب المفاتيح زمنياً
+              final sortedKeys = grouped.keys.toList()..sort();
 
               return RefreshIndicator(
                 onRefresh: () async => _refresh(),
                 color: AppColors.gold,
                 child: ListView(
                   padding: const EdgeInsets.only(bottom: 20),
-                  children: groupedByDay.entries.map((dayEntry) {
+                  children: sortedKeys.map((key) {
+                    final dayMatches = grouped[key]!;
+                    final dayLabel = keyToLabel[key]!;
+
+                    // تجميع حسب الدوري داخل اليوم
+                    final Map<String, List<Match>> byLeague = {};
+                    for (var m in dayMatches) {
+                      byLeague.putIfAbsent(m.leagueName, () => []).add(m);
+                    }
+
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         // عنوان اليوم
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                        Container(
+                          width: double.infinity,
+                          margin: const EdgeInsets.fromLTRB(12, 16, 12, 8),
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: AppColors.gold.withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: AppColors.gold.withOpacity(0.3)),
+                          ),
                           child: Text(
-                            dayEntry.key,
+                            dayLabel,
                             style: const TextStyle(
-                              fontSize: 16,
+                              fontSize: 15,
                               fontWeight: FontWeight.bold,
                               color: AppColors.gold,
                             ),
                           ),
                         ),
 
-                        // المباريات حسب الدوري داخل اليوم
-                        ..._buildLeagueGroups(dayEntry.value),
-                      ],
-                    );
-                  }).toList(),
-                ),
-              );
-            },
-          ),
-        ),
-      ],
-    );
-  }
-
-  List<Widget> _buildLeagueGroups(List<Match> dayMatches) {
-    final Map<String, List<Match>> byLeague = {};
-    for (var m in dayMatches) {
-      byLeague.putIfAbsent(m.leagueName, () => []).add(m);
-    }
-
-    return byLeague.entries.map((entry) {
-      return Container(
-        margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-        decoration: BoxDecoration(
-          color: AppColors.card,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppColors.border),
-        ),
-        child: Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: const BoxDecoration(
-                border: Border(bottom: BorderSide(color: AppColors.border)),
-              ),
-              child: Row(
-                children: [
-                  const Text('🏆', style: TextStyle(fontSize: 18)),
-                  const SizedBox(width: 8),
-                  Text(
-                    entry.key,
-                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
-                  ),
-                ],
-              ),
-            ),
-            ...entry.value.map((match) => MatchCard(
-                  match: match,
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => MatchDetailsScreen(match: match),
-                      ),
-                    );
-                  },
-                )),
-          ],
-        ),
-      );
-    }).toList();
-  }
-}
+                        // الدوريات
+                        ...byLeague.entries.map((entry) {
+                          return Container(
+                            margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                            decoration: BoxDecoration(
+                              color: AppColors.card,
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: AppColors.border),
+                            ),
+                            child: Column(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                  decoration: const BoxDecoration(
+                                    border: Border(bottom: BorderSide(color: AppColors.border)),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      const Text('🏆', style: TextStyle(fontSize: 18)),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        entry.key,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w600,
+                                          font
