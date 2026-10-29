@@ -26,6 +26,7 @@ class Match {
   final String referee;
   final String round;
   final List<MatchEvent> events;
+  final DateTime? date; // جديد
 
   Match({
     required this.id,
@@ -41,5 +42,6 @@ class Match {
     required this.referee,
     required this.round,
     this.events = const [],
+    this.date,
   });
 }
