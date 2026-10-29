@@ -73,8 +73,8 @@ class MatchService {
             if (utcDate != null) {
               try {
                 final dt = DateTime.parse(utcDate).toLocal();
-                statusText = '\( {dt.hour.toString().padLeft(2, '0')}: \){dt.minute.toString().padLeft(2, '0')}';
-              } catch (_) {}
+                statusText = '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+
             }
           }
 
