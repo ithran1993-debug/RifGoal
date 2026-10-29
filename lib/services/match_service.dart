@@ -54,7 +54,7 @@ class MatchService {
         final data = json.decode(response.body);
         final List matchesJson = data['matches'] ?? [];
 
-        return matchesJson.map((m) {
+        return matchesJson.map<Match>((m) {
           final home = m['homeTeam'] ?? {};
           final away = m['awayTeam'] ?? {};
           final score = m['score']?['fullTime'] ?? {};
@@ -63,7 +63,7 @@ class MatchService {
 
           String scoreText = 'vs';
           if (score['home'] != null && score['away'] != null) {
-            scoreText = '${score['home']} -${score['away']}';
+            scoreText = '${score['home']} - ${score['away']}';
           }
 
           // وقت المباراة
@@ -76,6 +76,11 @@ class MatchService {
                 statusText = '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
               } catch (_) {}
             }
+          }
+
+          String refereeName = 'غير محدد';
+          if (m['referees'] != null && (m['referees'] as List).isNotEmpty) {
+            refereeName = m['referees'][0]['name'] ?? 'غير محدد';
           }
 
           return Match(
@@ -95,4 +100,24 @@ class MatchService {
             statusClass: _mapStatus(status),
             minute: null,
             stadium: m['venue'] ?? 'غير محدد',
-            referee: (m['referees'] != null
+            referee: refereeName,
+            round: m['matchday'] != null ? 'الجولة ${m['matchday']}' : '',
+            events: [],
+          );
+        }).toList();
+      } else {
+        print('خطأ API: ${response.statusCode}');
+        return [];
+      }
+    } catch (e) {
+      print('خطأ: $e');
+      return [];
+    }
+  }
+
+  static Future<List<Match>> getByLeague(String league) async {
+    final matches = await getMatches();
+    if (league == 'all') return matches;
+    return matches.where((m) => m.league == league).toList();
+  }
+}
