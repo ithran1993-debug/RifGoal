@@ -20,7 +20,7 @@ class MatchService {
     }
   }
 
-  static String _mapStatusText(String status, Map? score) {
+  static String _mapStatusText(String status) {
     switch (status) {
       case 'IN_PLAY':
       case 'LIVE':
@@ -39,15 +39,16 @@ class MatchService {
 
   static Future<List<Match>> getMatches() async {
     try {
+      final now = DateTime.now();
+      final dateFrom = now.subtract(const Duration(days: 1)).toIso8601String().substring(0, 10);
+      final dateTo = now.add(const Duration(days: 3)).toIso8601String().substring(0, 10);
+
       final response = await http.get(
-        Uri.parse('$_baseUrl/matches'),
+        Uri.parse('$_baseUrl/matches?dateFrom=$dateFrom&dateTo=$dateTo'),
         headers: {
           'X-Auth-Token': _apiKey,
         },
       );
-
-      print('Status Code: ${response.statusCode}');
-      print('Body: ${response.body}');
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
@@ -65,6 +66,18 @@ class MatchService {
             scoreText = '${score['home']} - ${score['away']}';
           }
 
+          // وقت المباراة
+          String statusText = _mapStatusText(status);
+          if (status == 'SCHEDULED' || status == 'TIMED') {
+            final utcDate = m['utcDate'];
+            if (utcDate != null) {
+              try {
+                final dt = DateTime.parse(utcDate).toLocal();
+                statusText = '\( {dt.hour.toString().padLeft(2, '0')}: \){dt.minute.toString().padLeft(2, '0')}';
+              } catch (_) {}
+            }
+          }
+
           return Match(
             id: m['id'].toString(),
             league: competition['code']?.toString().toLowerCase() ?? 'unknown',
@@ -78,7 +91,7 @@ class MatchService {
               logo: away['crest'] ?? '',
             ),
             score: scoreText,
-            status: _mapStatusText(status, score),
+            status: statusText,
             statusClass: _mapStatus(status),
             minute: null,
             stadium: m['venue'] ?? 'غير محدد',
@@ -99,12 +112,9 @@ class MatchService {
     }
   }
 
-    static Future<List<Match>> getByLeague(String league) async {
-    try {
-      final matches = await getMatches();
-      return matches.where((match) => match.league == league).toList();
-    } catch (e) {
-      return [];
-    }
+  static Future<List<Match>> getByLeague(String league) async {
+    final matches = await getMatches();
+    if (league == 'all') return matches;
+    return matches.where((m) => m.league == league).toList();
   }
 }
