@@ -1,92 +1,103 @@
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 import '../models/match_model.dart';
 
 class MatchService {
-  static List<Match> getMatches() {
-    return [
-      Match(
-        id: '1',
-        league: 'ucl',
-        leagueName: 'دوري أبطال أوروبا',
-        home: Team(name: 'برشلونة', logo: 'https://media.api-sports.io/football/teams/529.png'),
-        away: Team(name: 'بايرن ميونخ', logo: 'https://media.api-sports.io/football/teams/157.png'),
-        score: '2 - 1',
-        status: "67'",
-        statusClass: 'live',
-        minute: '67',
-        stadium: 'كامب نو',
-        referee: 'مايكل أوليفر',
-        round: 'دور الـ 16',
-      ),
-      Match(
-        id: '2',
-        league: 'ucl',
-        leagueName: 'دوري أبطال أوروبا',
-        home: Team(name: 'ريال مدريد', logo: 'https://media.api-sports.io/football/teams/541.png'),
-        away: Team(name: 'مانشستر سيتي', logo: 'https://media.api-sports.io/football/teams/50.png'),
-        score: '0 - 0',
-        status: 'شوط',
-        statusClass: 'half',
-        stadium: 'سانتياغو برنابيو',
-        referee: 'دافيد كوت',
-        round: 'دور الـ 16',
-      ),
-      Match(
-        id: '3',
-        league: 'epl',
-        leagueName: 'الدوري الإنجليزي',
-        home: Team(name: 'ليفربول', logo: 'https://media.api-sports.io/football/teams/40.png'),
-        away: Team(name: 'آرسنال', logo: 'https://media.api-sports.io/football/teams/42.png'),
-        score: 'vs',
-        status: '20:00',
-        statusClass: 'upcoming',
-        stadium: 'أنفيلد',
-        referee: 'أنطوني تايلور',
-        round: 'الجولة 10',
-      ),
-      Match(
-        id: '4',
-        league: 'botola',
-        leagueName: 'البطولة المغربية',
-        home: Team(name: 'الوداد', logo: 'https://media.api-sports.io/football/teams/968.png'),
-        away: Team(name: 'الرجاء', logo: 'https://media.api-sports.io/football/teams/967.png'),
-        score: '1 - 1',
-        status: 'انتهى',
-        statusClass: 'finished',
-        stadium: 'مركب محمد الخامس',
-        referee: 'رضا الجعيدان',
-        round: 'الجولة 8',
-      ),
-      Match(
-        id: '5',
-        league: 'botola',
-        leagueName: 'البطولة المغربية',
-        home: Team(name: 'الجيش الملكي', logo: 'https://media.api-sports.io/football/teams/969.png'),
-        away: Team(name: 'الفتح', logo: 'https://media.api-sports.io/football/teams/970.png'),
-        score: '2 - 0',
-        status: 'انتهى',
-        statusClass: 'finished',
-        stadium: 'ملعب مولاي عبد الله',
-        referee: 'سيتم تحديده',
-        round: 'الجولة 8',
-      ),
-      Match(
-        id: '6',
-        league: 'epl',
-        leagueName: 'الدوري الإنجليزي',
-        home: Team(name: 'تشيلسي', logo: 'https://media.api-sports.io/football/teams/49.png'),
-        away: Team(name: 'توتنهام', logo: 'https://media.api-sports.io/football/teams/47.png'),
-        score: 'vs',
-        status: '17:30',
-        statusClass: 'upcoming',
-        stadium: 'ستامفورد بريدج',
-        referee: 'بول تيرنر',
-        round: 'الجولة 10',
-      ),
-    ];
+  static const String _apiKey = 'eed3b9bde17f4f1694c0796bf739bbb7';
+  static const String _baseUrl = 'https://api.football-data.org/v4';
+
+  static String _mapStatus(String status) {
+    switch (status) {
+      case 'IN_PLAY':
+      case 'LIVE':
+        return 'live';
+      case 'PAUSED':
+        return 'half';
+      case 'FINISHED':
+        return 'finished';
+      default:
+        return 'upcoming';
+    }
   }
 
-  static List<Match> getByLeague(String league) {
-    if (league == 'all') return getMatches();
-    return getMatches().where((m) => m.league == league).toList();
+  static String _mapStatusText(String status, Map? score) {
+    switch (status) {
+      case 'IN_PLAY':
+      case 'LIVE':
+        return 'مباشر';
+      case 'PAUSED':
+        return 'شوط';
+      case 'FINISHED':
+        return 'انتهى';
+      case 'SCHEDULED':
+      case 'TIMED':
+        return 'قادمة';
+      default:
+        return status;
+    }
   }
-}
+
+  static Future<List<Match>> getMatches() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$_baseUrl/matches'),
+        headers: {
+          'X-Auth-Token': _apiKey,
+        },
+      );
+
+      print('Status Code: ${response.statusCode}');
+      print('Body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final List matchesJson = data['matches'] ?? [];
+
+        return matchesJson.map((m) {
+          final home = m['homeTeam'] ?? {};
+          final away = m['awayTeam'] ?? {};
+          final score = m['score']?['fullTime'] ?? {};
+          final status = m['status'] ?? 'SCHEDULED';
+          final competition = m['competition'] ?? {};
+
+          String scoreText = 'vs';
+          if (score['home'] != null && score['away'] != null) {
+            scoreText = '${score['home']} - ${score['away']}';
+          }
+
+          return Match(
+            id: m['id'].toString(),
+            league: competition['code']?.toString().toLowerCase() ?? 'unknown',
+            leagueName: competition['name'] ?? 'دوري',
+            home: Team(
+              name: home['shortName'] ?? home['name'] ?? 'فريق',
+              logo: home['crest'] ?? '',
+            ),
+            away: Team(
+              name: away['shortName'] ?? away['name'] ?? 'فريق',
+              logo: away['crest'] ?? '',
+            ),
+            score: scoreText,
+            status: _mapStatusText(status, score),
+            statusClass: _mapStatus(status),
+            minute: null,
+            stadium: m['venue'] ?? 'غير محدد',
+            referee: (m['referees'] != null && (m['referees'] as List).isNotEmpty)
+                ? (m['referees'][0]['name'] ?? 'غير محدد')
+                : 'غير محدد',
+            round: m['matchday'] != null ? 'الجولة ${m['matchday']}' : '',
+            events: [],
+          );
+        }).toList();
+      } else {
+        print('خطأ API: ${response.statusCode}');
+        return [];
+      }
+    } catch (e) {
+      print('خطأ: $e');
+      return [];
+    }
+  }
+
+  static Future<List<Match>> getByLeague(String league) async {
+    final matches = await getMatches();
