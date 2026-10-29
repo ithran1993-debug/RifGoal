@@ -41,8 +41,6 @@ class MatchService {
         return status;
     }
   }
-    }
-  }
 
   static Future<List<Match>> getMatches() async {
     try {
@@ -59,7 +57,7 @@ class MatchService {
         final data = json.decode(response.body);
         final List matchesJson = data['matches'] ?? [];
 
-        return matchesJson.map((m) {
+        return matchesJson.map<Match>((m) {
           final home = m['homeTeam'] ?? {};
           final away = m['awayTeam'] ?? {};
           final score = m['score']?['fullTime'] ?? {};
