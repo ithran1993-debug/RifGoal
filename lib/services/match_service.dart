@@ -20,7 +20,7 @@ class MatchService {
     }
   }
 
-  static String _mapStatusText(String status) {
+  static String _mapStatusText(String status, DateTime? date) {
     switch (status) {
       case 'IN_PLAY':
       case 'LIVE':
@@ -31,6 +31,9 @@ class MatchService {
         return 'انتهى';
       case 'SCHEDULED':
       case 'TIMED':
+        if (date != null) {
+          return '\( {date.hour.toString().padLeft(2, '0')}: \){date.minute.toString().padLeft(2, '0')}';
+        }
         return 'قادمة';
       default:
         return status;
@@ -41,46 +44,34 @@ class MatchService {
     try {
       final now = DateTime.now();
       final dateFrom = now.subtract(const Duration(days: 1)).toIso8601String().substring(0, 10);
-      final dateTo = now.add(const Duration(days: 3)).toIso8601String().substring(0, 10);
+      final dateTo = now.add(const Duration(days: 5)).toIso8601String().substring(0, 10);
 
       final response = await http.get(
         Uri.parse('$_baseUrl/matches?dateFrom=$dateFrom&dateTo=$dateTo'),
-        headers: {
-          'X-Auth-Token': _apiKey,
-        },
+        headers: {'X-Auth-Token': _apiKey},
       );
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final List matchesJson = data['matches'] ?? [];
 
-        return matchesJson.map<Match>((m) {
+        return matchesJson.map((m) {
           final home = m['homeTeam'] ?? {};
           final away = m['awayTeam'] ?? {};
           final score = m['score']?['fullTime'] ?? {};
           final status = m['status'] ?? 'SCHEDULED';
           final competition = m['competition'] ?? {};
 
+          DateTime? matchDate;
+          if (m['utcDate'] != null) {
+            try {
+              matchDate = DateTime.parse(m['utcDate']).toLocal();
+            } catch (_) {}
+          }
+
           String scoreText = 'vs';
           if (score['home'] != null && score['away'] != null) {
             scoreText = '${score['home']} - ${score['away']}';
-          }
-
-          // وقت المباراة
-          String statusText = _mapStatusText(status);
-          if (status == 'SCHEDULED' || status == 'TIMED') {
-            final utcDate = m['utcDate'];
-            if (utcDate != null) {
-              try {
-                final dt = DateTime.parse(utcDate).toLocal();
-                statusText = '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
-              } catch (_) {}
-            }
-          }
-
-          String refereeName = 'غير محدد';
-          if (m['referees'] != null && (m['referees'] as List).isNotEmpty) {
-            refereeName = m['referees'][0]['name'] ?? 'غير محدد';
           }
 
           return Match(
@@ -96,19 +87,20 @@ class MatchService {
               logo: away['crest'] ?? '',
             ),
             score: scoreText,
-            status: statusText,
+            status: _mapStatusText(status, matchDate),
             statusClass: _mapStatus(status),
             minute: null,
             stadium: m['venue'] ?? 'غير محدد',
-            referee: refereeName,
+            referee: (m['referees'] != null && (m['referees'] as List).isNotEmpty)
+                ? (m['referees'][0]['name'] ?? 'غير محدد')
+                : 'غير محدد',
             round: m['matchday'] != null ? 'الجولة ${m['matchday']}' : '',
             events: [],
+            date: matchDate,
           );
         }).toList();
-      } else {
-        print('خطأ API: ${response.statusCode}');
-        return [];
       }
+      return [];
     } catch (e) {
       print('خطأ: $e');
       return [];
