@@ -32,11 +32,15 @@ class MatchService {
       case 'SCHEDULED':
       case 'TIMED':
         if (date != null) {
-          return '\( {date.hour.toString().padLeft(2, '0')}: \){date.minute.toString().padLeft(2, '0')}';
+          final hour = date.hour.toString().padLeft(2, '0');
+          final minute = date.minute.toString().padLeft(2, '0');
+          return '$hour:$minute';
         }
         return 'قادمة';
       default:
         return status;
+    }
+  }
     }
   }
 
