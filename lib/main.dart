@@ -2,12 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'theme/app_theme.dart';
 import 'screens/home_screen.dart';
+import 'screens/leagues_screen.dart';
 import 'screens/standings_screen.dart';
 import 'screens/news_screen.dart';
 import 'screens/settings_screen.dart';
+import 'screens/favorites_screen.dart';
+import 'services/favorites_service.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await FavoritesService.instance.load();
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
     statusBarColor: Colors.transparent,
     statusBarIconBrightness: Brightness.light,
@@ -45,14 +49,13 @@ class MainShell extends StatefulWidget {
 class _MainShellState extends State<MainShell> {
   int _currentIndex = 0;
 
-  import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'theme/app_theme.dart';
-import 'screens/home_screen.dart';
-import 'screens/standings_screen.dart';
-import 'screens/news_screen.dart';
-import 'screens/settings_screen.dart';
-import 'screens/leagues_screen.dart';
+  final List<Widget> _pages = const [
+    HomeScreen(),
+    FavoritesScreen(),
+    LeaguesScreen(),
+    StandingsScreen(),
+    NewsScreen(),
+    SettingsScreen(),
   ];
 
   @override
@@ -103,8 +106,12 @@ import 'screens/leagues_screen.dart';
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         onTap: (i) => setState(() => _currentIndex = i),
+        type: BottomNavigationBarType.fixed,
+        selectedFontSize: 11,
+        unselectedFontSize: 10,
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.sports_soccer), label: 'المباريات'),
+          BottomNavigationBarItem(icon: Icon(Icons.star), label: 'المفضلة'),
           BottomNavigationBarItem(icon: Icon(Icons.emoji_events), label: 'الدوريات'),
           BottomNavigationBarItem(icon: Icon(Icons.bar_chart), label: 'الترتيب'),
           BottomNavigationBarItem(icon: Icon(Icons.newspaper), label: 'أخبار'),
