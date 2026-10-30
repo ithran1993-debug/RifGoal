@@ -30,6 +30,7 @@ class MatchCard extends StatelessWidget {
                       match.home.name,
                       style: const TextStyle(fontSize: 13, color: AppColors.text),
                       overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.end,
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -39,7 +40,10 @@ class MatchCard extends StatelessWidget {
             ),
 
             // النتيجة / الحالة
-            SizedBox(width: 80, child: _buildScoreBox()),
+            SizedBox(
+              width: 70,
+              child: _buildScoreBox(),
+            ),
 
             // الفريق الضيف
             Expanded(
@@ -65,20 +69,22 @@ class MatchCard extends StatelessWidget {
 
   Widget _teamLogo(String url) {
     return Container(
-      width: 34,
-      height: 34,
+      width: 32,
+      height: 32,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         color: const Color(0xFF21262D),
         border: Border.all(color: AppColors.border),
       ),
       child: ClipOval(
-        child: CachedNetworkImage(
-          imageUrl: url,
-          fit: BoxFit.contain,
-          placeholder: (_, __) => const Icon(Icons.sports_soccer, size: 18, color: AppColors.muted),
-          errorWidget: (_, __, ___) => const Icon(Icons.sports_soccer, size: 18, color: AppColors.muted),
-        ),
+        child: url.isEmpty
+            ? const Icon(Icons.sports_soccer, size: 16, color: AppColors.muted)
+            : CachedNetworkImage(
+                imageUrl: url,
+                fit: BoxFit.contain,
+                placeholder: (_, __) => const Icon(Icons.sports_soccer, size: 16, color: AppColors.muted),
+                errorWidget: (_, __, ___) => const Icon(Icons.sports_soccer, size: 16, color: AppColors.muted),
+              ),
       ),
     );
   }
@@ -87,20 +93,20 @@ class MatchCard extends StatelessWidget {
     if (match.statusClass == 'live') {
       return Center(
         child: Container(
-          width: 42,
-          height: 42,
+          width: 40,
+          height: 40,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            border: Border.all(color: AppColors.live, width: 3),
-            color: AppColors.live.withOpacity(0.08),
+            border: Border.all(color: AppColors.live, width: 2.5),
+            color: AppColors.live.withOpacity(0.1),
           ),
           child: Center(
             child: Text(
-              "${match.minute}'",
+              match.minute != null ? "${match.minute}'" : 'مباشر',
               style: const TextStyle(
                 color: AppColors.live,
                 fontWeight: FontWeight.bold,
-                fontSize: 12,
+                fontSize: 11,
               ),
             ),
           ),
@@ -111,12 +117,11 @@ class MatchCard extends StatelessWidget {
     if (match.statusClass == 'half') {
       return Center(
         child: Container(
-          width: 42,
-          height: 42,
+          width: 40,
+          height: 40,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            border: Border.all(color: const Color(0xFFD29922), width: 3),
-            color: const Color(0xFFD29922).withOpacity(0.08),
+            border: Border.all(color: const Color(0xFFD29922), width: 2.5),
           ),
           child: const Center(
             child: Text(
@@ -134,23 +139,40 @@ class MatchCard extends StatelessWidget {
 
     if (match.statusClass == 'finished') {
       return Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
           Text(
             match.score,
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.text),
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: AppColors.text,
+            ),
           ),
-          const Text('انتهى', style: TextStyle(fontSize: 11, color: AppColors.green)),
+          const Text(
+            'انتهى',
+            style: TextStyle(fontSize: 10, color: AppColors.green),
+          ),
         ],
       );
     }
 
+    // مباراة قادمة
     return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
         Text(
-          match.status.split(' ').first,
-          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.gold),
+          match.status,
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+            color: AppColors.gold,
+          ),
         ),
-        const Text('مساء', style: TextStyle(fontSize: 11, color: AppColors.gold)),
+        const Text(
+          'vs',
+          style: TextStyle(fontSize: 11, color: AppColors.muted),
+        ),
       ],
     );
   }
