@@ -70,23 +70,24 @@ class _OnboardingTeamsScreenState extends State<OnboardingTeamsScreen> {
   };
 
   List> get availableTeams {
-    final List> teams = [];
-    final Set<String> added = {};
+    final List> teamsList = [];
+    final Set<String> addedNames = {};
 
-    final leagues = widget.selectedLeagues.isEmpty
+    final activeLeagues = widget.selectedLeagues.isEmpty
         ? teamsByLeague.keys.toList()
         : widget.selectedLeagues;
 
-    for (final code in leagues) {
-      final list = teamsByLeague[code] ?? [];
-      for (final team in list) {
-        if (!added.contains(team['name'])) {
-          teams.add(team);
-          added.add(team['name']!);
+    for (final leagueCode in activeLeagues) {
+      final currentList = teamsByLeague[leagueCode] ?? [];
+      for (final teamItem in currentList) {
+        final teamName = teamItem['name'] ?? '';
+        if (!addedNames.contains(teamName)) {
+          teamsList.add(teamItem);
+          addedNames.add(teamName);
         }
       }
     }
-    return teams;
+    return teamsList;
   }
 
   Future<void> _finish() async {
