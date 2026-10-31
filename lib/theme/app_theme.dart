@@ -22,7 +22,6 @@ class AppTheme {
         primary: AppColors.gold,
         secondary: AppColors.goldDark,
         surface: AppColors.card,
-        background: AppColors.background,
       ),
       appBarTheme: const AppBarTheme(
         backgroundColor: AppColors.card,
