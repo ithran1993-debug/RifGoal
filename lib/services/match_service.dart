@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/match_model.dart';
+import '../utils/app_constants.dart';
 
 class MatchService {
   static const String _apiKey = 'eed3b9bde17f4f1694c0796bf739bbb7';
@@ -13,8 +14,8 @@ class MatchService {
         id: '1',
         league: 'cl',
         leagueName: 'دوري أبطال أوروبا',
-        home: Team(name: 'برشلونة', logo: 'https://media.api-sports.io/football/teams/529.png'),
-        away: Team(name: 'بايرن ميونخ', logo: 'https://media.api-sports.io/football/teams/157.png'),
+        home: Team(name: 'برشلونة', logo: 'https://crests.football-data.org/81.png'),
+        away: Team(name: 'بايرن ميونخ', logo: 'https://crests.football-data.org/5.png'),
         score: '2 - 1',
         status: "67'",
         statusClass: 'live',
@@ -28,8 +29,8 @@ class MatchService {
         id: '2',
         league: 'cl',
         leagueName: 'دوري أبطال أوروبا',
-        home: Team(name: 'ريال مدريد', logo: 'https://media.api-sports.io/football/teams/541.png'),
-        away: Team(name: 'مانشستر سيتي', logo: 'https://media.api-sports.io/football/teams/50.png'),
+        home: Team(name: 'ريال مدريد', logo: 'https://crests.football-data.org/86.png'),
+        away: Team(name: 'مانشستر سيتي', logo: 'https://crests.football-data.org/65.png'),
         score: '0 - 0',
         status: 'شوط',
         statusClass: 'half',
@@ -37,34 +38,6 @@ class MatchService {
         referee: 'دافيد كوت',
         round: 'دور الـ 16',
         date: now,
-      ),
-      Match(
-        id: '3',
-        league: 'pl',
-        leagueName: 'الدوري الإنجليزي',
-        home: Team(name: 'ليفربول', logo: 'https://media.api-sports.io/football/teams/40.png'),
-        away: Team(name: 'آرسنال', logo: 'https://media.api-sports.io/football/teams/42.png'),
-        score: 'vs',
-        status: '20:00',
-        statusClass: 'upcoming',
-        stadium: 'أنفيلد',
-        referee: 'أنطوني تايلور',
-        round: 'الجولة 10',
-        date: now.add(const Duration(days: 1)),
-      ),
-      Match(
-        id: '4',
-        league: 'botola',
-        leagueName: 'البطولة المغربية',
-        home: Team(name: 'الوداد', logo: 'https://media.api-sports.io/football/teams/968.png'),
-        away: Team(name: 'الرجاء', logo: 'https://media.api-sports.io/football/teams/967.png'),
-        score: '1 - 1',
-        status: 'انتهى',
-        statusClass: 'finished',
-        stadium: 'مركب محمد الخامس',
-        referee: 'رضا الجعيدان',
-        round: 'الجولة 8',
-        date: now.subtract(const Duration(days: 1)),
       ),
     ];
   }
@@ -77,9 +50,7 @@ class MatchService {
 
       final response = await http.get(
         Uri.parse('$_baseUrl/matches?dateFrom=$from&dateTo=$to'),
-        headers: {
-          'X-Auth-Token': _apiKey,
-        },
+        headers: {'X-Auth-Token': _apiKey},
       ).timeout(const Duration(seconds: 10));
 
       if (response.statusCode != 200) {
@@ -115,13 +86,15 @@ class MatchService {
 
           String statusClass = 'upcoming';
           String statusText = 'قادمة';
+          String? currentMin;
 
           if (status == 'IN_PLAY' || status == 'LIVE') {
             statusClass = 'live';
-            statusText = 'مباشر';
+            currentMin = (m['minute'] ?? 35).toString();
+            statusText = "'$currentMin";
           } else if (status == 'PAUSED') {
             statusClass = 'half';
-            statusText = 'شوط';
+            statusText = 'استراحة';
           } else if (status == 'FINISHED') {
             statusClass = 'finished';
             statusText = 'انتهى';
@@ -131,38 +104,35 @@ class MatchService {
             statusText = '$h:$min';
           }
 
+          final homeRaw = (home['shortName'] ?? home['name'] ?? 'فريق').toString();
+          final awayRaw = (away['shortName'] ?? away['name'] ?? 'فريق').toString();
+
           result.add(Match(
             id: m['id'].toString(),
             league: (competition['code'] ?? 'unknown').toString().toLowerCase(),
-            leagueName: (competition['name'] ?? 'دوري').toString(),
+            leagueName: AppConstants.translateLeague(competition['name']),
             home: Team(
-              name: (home['shortName'] ?? home['name'] ?? 'فريق').toString(),
+              name: AppConstants.translateTeam(homeRaw),
               logo: (home['crest'] ?? '').toString(),
             ),
             away: Team(
-              name: (away['shortName'] ?? away['name'] ?? 'فريق').toString(),
+              name: AppConstants.translateTeam(awayRaw),
               logo: (away['crest'] ?? '').toString(),
             ),
             score: scoreText,
             status: statusText,
             statusClass: statusClass,
-            minute: null,
+            minute: currentMin,
             stadium: (m['venue'] ?? 'غير محدد').toString(),
             referee: 'غير محدد',
             round: m['matchday'] != null ? 'الجولة ${m['matchday']}' : '',
             events: const [],
             date: matchDate ?? now,
           ));
-        } catch (_) {
-          // نتجاهل أي مباراة فيها خطأ ونكمل
-        }
+        } catch (_) {}
       }
 
-      if (result.isEmpty) {
-        return _fallbackMatches();
-      }
-
-      return result;
+      return result.isEmpty ? _fallbackMatches() : result;
     } catch (e) {
       return _fallbackMatches();
     }
@@ -170,7 +140,35 @@ class MatchService {
 
   static Future<List<Match>> getByLeague(String league) async {
     final matches = await getMatches();
-    if (league == 'all') return matches;
-    return matches.where((m) => m.league == league).toList();
+    if (league.toLowerCase() == 'all') return matches;
+    return matches.where((m) => m.league.toLowerCase() == league.toLowerCase()).toList();
+  }
+
+  static Future<List<Match>> getByTeam(String teamName) async {
+    final matches = await getMatches();
+    return matches.where((m) =>
+      m.home.name.contains(teamName) ||
+      m.away.name.contains(teamName) ||
+      teamName.contains(m.home.name) ||
+      teamName.contains(m.away.name)
+    ).toList();
+  }
+
+  static Future<List<dynamic>> getStandings(String leagueCode) async {
+    try {
+      final res = await http.get(
+        Uri.parse('$_baseUrl/competitions/$leagueCode/standings'),
+        headers: {'X-Auth-Token': _apiKey},
+      ).timeout(const Duration(seconds: 10));
+
+      if (res.statusCode == 200) {
+        final data = json.decode(res.body);
+        final standings = data['standings'] as List? ?? [];
+        if (standings.isNotEmpty) {
+          return standings[0]['table'] ?? [];
+        }
+      }
+    } catch (_) {}
+    return [];
   }
 }
