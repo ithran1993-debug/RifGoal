@@ -17,7 +17,8 @@ class _TeamDetailScreenState extends State<TeamDetailScreen> {
   bool _isLoading = true;
   List<dynamic> _teamMatches = [];
 
-  // ربط معرفات الأندية بـ API Football-Data
+  static const String _apiKey = 'eed3b9bde17f4f1694c0796bf739bbb7';
+
   final Map<String, int> teamIds = const {
     'ريال مدريد': 86,
     'برشلونة': 81,
@@ -26,6 +27,13 @@ class _TeamDetailScreenState extends State<TeamDetailScreen> {
     'أرسنال': 57,
     'باريس سان جيرمان': 524,
     'بايرن ميونخ': 5,
+    'تشيلسي': 61,
+    'مانشستر يونايتد': 66,
+    'يوفنتوس': 109,
+    'إنتر ميلان': 108,
+    'ميلان': 98,
+    'أتلتيكو مدريد': 78,
+    'بوروسيا دورتموند': 4,
   };
 
   @override
@@ -44,7 +52,7 @@ class _TeamDetailScreenState extends State<TeamDetailScreen> {
     try {
       final res = await http.get(
         Uri.parse('https://api.football-data.org/v4/teams/$teamId/matches?limit=10'),
-        headers: {'X-Auth-Token': 'YOUR_API_KEY_HERE'},
+        headers: {'X-Auth-Token': _apiKey},
       );
 
       if (res.statusCode == 200) {
@@ -89,7 +97,12 @@ class _TeamDetailScreenState extends State<TeamDetailScreen> {
                     child: Column(
                       children: [
                         badgeUrl != null
-                            ? Image.network(badgeUrl, width: 70, height: 70, errorBuilder: (_, __, ___) => const Icon(Icons.sports_soccer, size: 60, color: AppColors.gold))
+                            ? Image.network(
+                                badgeUrl,
+                                width: 70,
+                                height: 70,
+                                errorBuilder: (_, __, ___) => const Icon(Icons.sports_soccer, size: 60, color: AppColors.gold),
+                              )
                             : const Icon(Icons.sports_soccer, size: 60, color: AppColors.gold),
                         const SizedBox(height: 12),
                         Text(widget.teamName, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
@@ -108,7 +121,7 @@ class _TeamDetailScreenState extends State<TeamDetailScreen> {
                       ? Container(
                           padding: const EdgeInsets.all(20),
                           decoration: BoxDecoration(color: AppColors.card, borderRadius: BorderRadius.circular(12)),
-                          child: const Center(child: Text('لا توجد مباريات مسجلة حالياً', style: TextStyle(color: AppColors.muted))),
+                          child: const Center(child: Text('لا توجد مباريات مسجلة حالياً لهذا النادي', style: TextStyle(color: AppColors.muted))),
                         )
                       : ListView.builder(
                           shrinkWrap: true,
