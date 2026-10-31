@@ -18,13 +18,16 @@ class _HomeScreenState extends State<HomeScreen> {
   late DateTime selectedDate;
   late Future<List<Match>> _matchesFuture;
 
+  // مطابقة المعرفات الرقمية مع API-Sports
   final Map<String, String> leagues = {
     'all': 'الكل',
-    'cl': 'أبطال أوروبا',
-    'pl': 'الإنجليزي',
-    'pd': 'الإسباني',
-    'sa': 'الإيطالي',
-    'bl1': 'الألماني',
+    '2': 'أبطال أوروبا',
+    '39': 'الإنجليزي',
+    '140': 'الإسباني',
+    '135': 'الإيطالي',
+    '78': 'الألماني',
+    '61': 'الفرنسي',
+    '200': 'البطولة المغربية',
   };
 
   @override
@@ -32,12 +35,13 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     final now = DateTime.now();
     selectedDate = DateTime(now.year, now.month, now.day);
-    _matchesFuture = MatchService.getMatches();
+    _loadMatchesForSelectedDate();
   }
 
-  void _refresh() {
+  void _loadMatchesForSelectedDate() {
+    final String dateStr = selectedDate.toIso8601String().substring(0, 10);
     setState(() {
-      _matchesFuture = MatchService.getMatches();
+      _matchesFuture = MatchService.getMatches(dateStr: dateStr);
     });
   }
 
@@ -91,7 +95,12 @@ class _HomeScreenState extends State<HomeScreen> {
               final isSelected = _isSameDay(day, selectedDate);
 
               return GestureDetector(
-                onTap: () => setState(() => selectedDate = day),
+                onTap: () {
+                  if (!_isSameDay(day, selectedDate)) {
+                    selectedDate = day;
+                    _loadMatchesForSelectedDate();
+                  }
+                },
                 child: Container(
                   margin: const EdgeInsets.symmetric(horizontal: 6),
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
@@ -117,7 +126,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         '${day.day}/${day.month}',
                         style: TextStyle(
                           color: isSelected
-                              ? AppColors.background.withOpacity(0.8)
+                              ? AppColors.background.withValues(alpha: 0.8)
                               : AppColors.muted,
                           fontSize: 10,
                         ),
@@ -144,7 +153,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   margin: const EdgeInsets.symmetric(horizontal: 4),
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                   decoration: BoxDecoration(
-                    color: isSelected ? AppColors.gold.withOpacity(0.2) : AppColors.card,
+                    color: isSelected ? AppColors.gold.withValues(alpha: 0.2) : AppColors.card,
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(
                       color: isSelected ? AppColors.gold : AppColors.border,
@@ -188,7 +197,11 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                       const SizedBox(height: 12),
                       ElevatedButton(
-                        onPressed: _refresh,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.gold,
+                          foregroundColor: Colors.black,
+                        ),
+                        onPressed: _loadMatchesForSelectedDate,
                         child: const Text('تحديث'),
                       ),
                     ],
@@ -196,12 +209,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 );
               }
 
-              var allMatches = snapshot.data!;
+              var matches = snapshot.data!;
 
-              // تصفية حسب اليوم المختار
-              var matches = allMatches.where((m) => _isSameDay(m.date, selectedDate)).toList();
-
-              // تصفية حسب الدوري
+              // تصفية حسب الدوري إذا تم اختيار دوري محدد
               if (selectedLeague != 'all') {
                 matches = matches.where((m) => m.league == selectedLeague).toList();
               }
@@ -223,7 +233,7 @@ class _HomeScreenState extends State<HomeScreen> {
               }
 
               return RefreshIndicator(
-                onRefresh: () async => _refresh(),
+                onRefresh: () async => _loadMatchesForSelectedDate(),
                 color: AppColors.gold,
                 child: ListView(
                   padding: const EdgeInsets.symmetric(vertical: 10),
@@ -269,7 +279,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 );
                               },
                             );
-                          }).toList(),
+                          }),
                         ],
                       ),
                     );
