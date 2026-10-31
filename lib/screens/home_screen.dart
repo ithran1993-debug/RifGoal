@@ -71,7 +71,6 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    // قائمة الأيام من أمس حتى 4 أيام قادمة
     final availableDays = List.generate(
       6,
       (index) => today.add(Duration(days: index - 1)),
@@ -183,10 +182,15 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Text('لا توجد مباريات متاحة حالياً',
-                          style: TextStyle(color: AppColors.muted)),
+                      const Text(
+                        'لا توجد مباريات متاحة حالياً',
+                        style: TextStyle(color: AppColors.muted),
+                      ),
                       const SizedBox(height: 12),
-                      ElevatedButton(onPressed: _refresh, child: const Text('تحديث')),
+                      ElevatedButton(
+                        onPressed: _refresh,
+                        child: const Text('تحديث'),
+                      ),
                     ],
                   ),
                 );
@@ -204,12 +208,78 @@ class _HomeScreenState extends State<HomeScreen> {
 
               if (matches.isEmpty) {
                 return const Center(
-                  child: Text('لا توجد مباريات في هذا اليوم',
-                      style: TextStyle(color: AppColors.muted)),
+                  child: Text(
+                    'لا توجد مباريات في هذا اليوم',
+                    style: TextStyle(color: AppColors.muted),
+                  ),
                 );
               }
 
               // تجميع مباريات اليوم حسب اسم البطولة المعرب
               final Map<String, List<Match>> byLeague = {};
               for (var m in matches) {
-                final translatedLeague = AppConstants.translateLeague(m.league
+                final String translatedLeague = AppConstants.translateLeague(m.leagueName);
+                byLeague.putIfAbsent(translatedLeague, () => []).add(m);
+              }
+
+              return RefreshIndicator(
+                onRefresh: () async => _refresh(),
+                color: AppColors.gold,
+                child: ListView(
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  children: byLeague.entries.map((entry) {
+                    return Container(
+                      margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                      decoration: BoxDecoration(
+                        color: AppColors.card,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: AppColors.border),
+                      ),
+                      child: Column(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                            decoration: const BoxDecoration(
+                              border: Border(bottom: BorderSide(color: AppColors.border)),
+                            ),
+                            child: Row(
+                              children: [
+                                const Text('🏆', style: TextStyle(fontSize: 16)),
+                                const SizedBox(width: 8),
+                                Text(
+                                  entry.key,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13,
+                                    color: AppColors.text,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          ...entry.value.map((match) {
+                            return MatchCard(
+                              match: match,
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => MatchDetailsScreen(match: match),
+                                  ),
+                                );
+                              },
+                            );
+                          }).toList(),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+}
