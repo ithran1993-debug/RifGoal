@@ -11,7 +11,7 @@ class NewsScreen extends StatefulWidget {
 }
 
 class _NewsScreenState extends State<NewsScreen> {
-  late Future<List<Map<String, dynamic>>> _newsFuture;
+  late Future<List>> _newsFuture;
 
   static const String _apiKey = '14bd27c011fd48eea58e807496398e34';
 
@@ -21,13 +21,13 @@ class _NewsScreenState extends State<NewsScreen> {
     _newsFuture = _fetchNews();
   }
 
-  Future<List<Map<String, dynamic>>> _fetchNews() async {
+  Future<List>> _fetchNews() async {
     try {
       final url = Uri.parse(
         'https://newsapi.org/v2/everything?q=football OR soccer OR "دوري الأبطال" OR "Premier League"&language=en&sortBy=publishedAt&pageSize=20&apiKey=$_apiKey',
       );
 
-      final response = await http.get(url);
+      final response = await http.get(url).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
@@ -35,20 +35,20 @@ class _NewsScreenState extends State<NewsScreen> {
 
         return articles.map((a) {
           return {
-            'title': a['title'] ?? 'بدون عنوان',
-            'source': a['source']?['name'] ?? 'مصدر',
+            'title': (a['title'] ?? 'بدون عنوان').toString(),
+            'source': (a['source']?['name'] ?? 'مصدر').toString(),
             'time': a['publishedAt'] != null
                 ? a['publishedAt'].toString().substring(0, 10)
                 : '',
-            'description': a['description'] ?? '',
-            'url': a['url'] ?? '',
-            'image': a['urlToImage'],
+            'description': (a['description'] ?? '').toString(),
+            'url': (a['url'] ?? '').toString(),
+            'image': a['urlToImage']?.toString(),
           };
         }).toList();
       }
       return [];
     } catch (e) {
-      print('خطأ في جلب الأخبار: $e');
+      debugPrint('خطأ في جلب الأخبار: $e');
       return [];
     }
   }
@@ -61,7 +61,7 @@ class _NewsScreenState extends State<NewsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<List<Map<String, dynamic>>>(
+    return FutureBuilder<List>>(
       future: _newsFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
@@ -75,11 +75,17 @@ class _NewsScreenState extends State<NewsScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Text('لا توجد أخبار حالياً', style: TextStyle(color: AppColors.muted)),
+                const Icon(Icons.newspaper, size: 48, color: AppColors.muted),
                 const SizedBox(height: 12),
+                const Text('لا توجد أخبار حالياً', style: TextStyle(color: AppColors.muted)),
+                const SizedBox(height: 16),
                 ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.gold,
+                    foregroundColor: Colors.black,
+                  ),
                   onPressed: _refresh,
-                  child: const Text('إعادة المحاولة'),
+                  child: const Text('إعادة المحاولة', style: TextStyle(fontWeight: FontWeight.bold)),
                 ),
               ],
             ),
@@ -96,48 +102,74 @@ class _NewsScreenState extends State<NewsScreen> {
             itemCount: news.length,
             itemBuilder: (context, index) {
               final item = news[index];
+              final hasImage = item['image'] != null && item['image'].toString().startsWith('http');
+
               return Container(
                 margin: const EdgeInsets.only(bottom: 12),
-                padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
                   color: AppColors.card,
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(color: AppColors.border),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      item['title'],
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 15,
-                        height: 1.3,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    if (item['description'] != null && item['description'].toString().isNotEmpty)
-                      Text(
-                        item['description'],
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(color: AppColors.muted, fontSize: 13),
-                      ),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        Text(
-                          item['source'],
-                          style: const TextStyle(color: AppColors.gold, fontSize: 12),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (hasImage)
+                        Image.network(
+                          item['image'],
+                          height: 170,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => const SizedBox.shrink(),
                         ),
-                        const SizedBox(width: 8),
-                        Text(
-                          '• ${item['time']}',
-                          style: const TextStyle(color: AppColors.muted, fontSize: 12),
+                      Padding(
+                        padding: const EdgeInsets.all(14),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              item['title'],
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 15,
+                                color: Colors.white,
+                                height: 1.3,
+                              ),
+                            ),
+                            if (item['description'].isNotEmpty) ...[
+                              const SizedBox(height: 8),
+                              Text(
+                                item['description'],
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(color: AppColors.muted, fontSize: 13),
+                              ),
+                            ],
+                            const SizedBox(height: 10),
+                            Row(
+                              children: [
+                                Text(
+                                  item['source'],
+                                  style: const TextStyle(
+                                    color: AppColors.gold,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  '• ${item['time']}',
+                                  style: const TextStyle(color: AppColors.muted, fontSize: 12),
+                                ),
+                              ],
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
-                  ],
+                      ),
+                    ],
+                  ),
                 ),
               );
             },
