@@ -3,18 +3,6 @@ import '../services/onboarding_service.dart';
 import '../theme/app_theme.dart';
 import 'onboarding_teams_screen.dart';
 
-class LeagueItem {
-  final String code;
-  final String name;
-  final String emoji;
-
-  const LeagueItem({
-    required this.code,
-    required this.name,
-    required this.emoji,
-  });
-}
-
 class OnboardingLeaguesScreen extends StatefulWidget {
   const OnboardingLeaguesScreen({super.key});
 
@@ -23,18 +11,64 @@ class OnboardingLeaguesScreen extends StatefulWidget {
 }
 
 class _OnboardingLeaguesScreenState extends State<OnboardingLeaguesScreen> {
-  final List<LeagueItem> leagues = const [
-    LeagueItem(code: '2', name: 'دوري أبطال أوروبا', emoji: '🏆'),
-    LeagueItem(code: '39', name: 'الدوري الإنجليزي', emoji: '🏴󠁧󠁢󠁥󠁮󠁧󠁿'),
-    LeagueItem(code: '140', name: 'الدوري الإسباني', emoji: '🇪🇸'),
-    LeagueItem(code: '135', name: 'الدوري الإيطالي', emoji: '🇮🇹'),
-    LeagueItem(code: '78', name: 'الدوري الألماني', emoji: '🇩🇪'),
-    LeagueItem(code: '61', name: 'الدوري الفرنسي', emoji: '🇫🇷'),
-    LeagueItem(code: '200', name: 'البطولة المغربية', emoji: '🇲🇦'),
-    LeagueItem(code: '3', name: 'الدوري الأوروبي', emoji: '🌍'),
+  final List<String> codes = const [
+    '2',
+    '39',
+    '140',
+    '135',
+    '78',
+    '61',
+    '200',
+    '3',
   ];
 
   final Set<String> selected = {};
+
+  String getLeagueName(String code) {
+    switch (code) {
+      case '2':
+        return '\u062f\u0648\u0631\u064a \u0623\u0628\u0637\u0627\u0644 \u0623\u0648\u0631\u0648\u0628\u0627';
+      case '39':
+        return '\u0627\u0644\u062f\u0648\u0631\u064a \u0627\u0644\u0625\u0646\u062c\u0644\u064a\u0632\u064a';
+      case '140':
+        return '\u0627\u0644\u062f\u0648\u0631\u064a \u0627\u0644\u0625\u0633\u0628\u0627\u0646\u064a';
+      case '135':
+        return '\u0627\u0644\u062f\u0648\u0631\u064a \u0627\u0644\u0625\u064a\u0637\u0627\u0644\u064a';
+      case '78':
+        return '\u0627\u0644\u062f\u0648\u0631\u064a \u0627\u0644\u0623\u0644\u0645\u0627\u0646\u064a';
+      case '61':
+        return '\u0627\u0644\u062f\u0648\u0631\u064a \u0627\u0644\u0641\u0631\u0646\u0633\u064a';
+      case '200':
+        return '\u0627\u0644\u0628\u0637\u0648\u0644\u0629 \u0627\u0644\u0645\u063a\u0631\u0628\u064a\u0629';
+      case '3':
+        return '\u0627\u0644\u062f\u0648\u0631\u064a \u0627\u0644\u0623\u0648\u0631\u0648\u0628\u064a';
+      default:
+        return '';
+    }
+  }
+
+  String getLeagueEmoji(String code) {
+    switch (code) {
+      case '2':
+        return '🏆';
+      case '39':
+        return '🏴󠁧󠁢󠁥󠁮󠁧󠁿';
+      case '140':
+        return '🇪🇸';
+      case '135':
+        return '🇮🇹';
+      case '78':
+        return '🇩🇪';
+      case '61':
+        return '🇫🇷';
+      case '200':
+        return '🇲🇦';
+      case '3':
+        return '🌍';
+      default:
+        return '⚽';
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -47,7 +81,7 @@ class _OnboardingLeaguesScreenState extends State<OnboardingLeaguesScreen> {
             const Padding(
               padding: EdgeInsets.fromLTRB(20, 30, 20, 8),
               child: Text(
-                'اختر دورياتك المفضلة',
+                '\u0627\u062e\u062a\u0631 \u062f\u0648\u0631\u064a\u0627\u062a\u0643 \u0627\u0644\u0645\u0641\u0636\u0644\u0629',
                 style: TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
@@ -58,7 +92,7 @@ class _OnboardingLeaguesScreenState extends State<OnboardingLeaguesScreen> {
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 20),
               child: Text(
-                'يمكنك اختيار أكثر من دوري، وبدون حد أدنى',
+                '\u064a\u0645\u0643\u0646\u0643 \u0627\u062e\u062a\u064a\u0627\u0631 \u0623\u0643\u062b\u0631 \u0645\u0646 \u062f\u0648\u0631\u064a\u060c \u0648\u0628\u062f\u0648\u0646 \u062d\u062f \u0623\u062f\u0646\u0649',
                 style: TextStyle(color: AppColors.muted, fontSize: 14),
               ),
             ),
@@ -66,18 +100,18 @@ class _OnboardingLeaguesScreenState extends State<OnboardingLeaguesScreen> {
             Expanded(
               child: ListView.builder(
                 padding: const EdgeInsets.symmetric(horizontal: 12),
-                itemCount: leagues.length,
+                itemCount: codes.length,
                 itemBuilder: (context, index) {
-                  final league = leagues[index];
-                  final isSelected = selected.contains(league.code);
+                  final code = codes[index];
+                  final isSelected = selected.contains(code);
 
                   return GestureDetector(
                     onTap: () {
                       setState(() {
                         if (isSelected) {
-                          selected.remove(league.code);
+                          selected.remove(code);
                         } else {
-                          selected.add(league.code);
+                          selected.add(code);
                         }
                       });
                     },
@@ -96,11 +130,11 @@ class _OnboardingLeaguesScreenState extends State<OnboardingLeaguesScreen> {
                       ),
                       child: Row(
                         children: [
-                          Text(league.emoji, style: const TextStyle(fontSize: 28)),
+                          Text(getLeagueEmoji(code), style: const TextStyle(fontSize: 28)),
                           const SizedBox(width: 14),
                           Expanded(
                             child: Text(
-                              league.name,
+                              getLeagueName(code),
                               style: const TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w600,
@@ -145,7 +179,9 @@ class _OnboardingLeaguesScreenState extends State<OnboardingLeaguesScreen> {
                     ),
                   ),
                   child: Text(
-                    selected.isEmpty ? 'تخطي' : 'التالي (${selected.length})',
+                    selected.isEmpty
+                        ? '\u062a\u062e\u0637\u064a'
+                        : '\u0627\u0644\u062a\u0627\u0644\u064a (${selected.length})',
                     style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                   ),
                 ),
