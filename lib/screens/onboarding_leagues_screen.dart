@@ -22,8 +22,7 @@ class _OnboardingLeaguesScreenState extends State<OnboardingLeaguesScreen> {
     {'code': '3', 'name': 'الدوري الأوروبي', 'emoji': '🌍'},
   ];
 
-final List leagues = const [
-
+  final Set<String> selected = {};
 
   @override
   Widget build(BuildContext context) {
