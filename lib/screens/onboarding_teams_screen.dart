@@ -15,7 +15,7 @@ class OnboardingTeamsScreen extends StatefulWidget {
 class _OnboardingTeamsScreenState extends State<OnboardingTeamsScreen> {
   final Set<String> selected = {};
 
-  final Map<String, List>> teamsByLeague = const {
+  final Map<String, dynamic> teamsByLeague = const {
     'CL': [
       {'name': 'ريال مدريد', 'logo': 'https://crests.football-data.org/86.png'},
       {'name': 'برشلونة', 'logo': 'https://crests.football-data.org/81.png'},
@@ -69,18 +69,18 @@ class _OnboardingTeamsScreenState extends State<OnboardingTeamsScreen> {
     ],
   };
 
-  List> get availableTeams {
-    final List> teamsList = [];
-    final Set<String> addedNames = {};
+  List get availableTeams {
+    final List teamsList = [];
+    final Set addedNames = {};
 
     final activeLeagues = widget.selectedLeagues.isEmpty
         ? teamsByLeague.keys.toList()
         : widget.selectedLeagues;
 
     for (final leagueCode in activeLeagues) {
-      final currentList = teamsByLeague[leagueCode] ?? [];
+      final currentList = teamsByLeague[leagueCode] as List? ?? [];
       for (final teamItem in currentList) {
-        final teamName = teamItem['name'] ?? '';
+        final teamName = teamItem['name']?.toString() ?? '';
         if (!addedNames.contains(teamName)) {
           teamsList.add(teamItem);
           addedNames.add(teamName);
@@ -149,8 +149,8 @@ class _OnboardingTeamsScreenState extends State<OnboardingTeamsScreen> {
                       itemCount: teams.length,
                       itemBuilder: (context, index) {
                         final team = teams[index];
-                        final name = team['name']!;
-                        final logoUrl = team['logo']!;
+                        final name = team['name']?.toString() ?? '';
+                        final logoUrl = team['logo']?.toString() ?? '';
                         final isSelected = selected.contains(name);
 
                         return GestureDetector(
@@ -177,31 +177,38 @@ class _OnboardingTeamsScreenState extends State<OnboardingTeamsScreen> {
                             ),
                             child: Row(
                               children: [
-                                Image.network(
-                                  logoUrl,
-                                  width: 28,
-                                  height: 28,
-                                  fit: BoxFit.contain,
-                                  loadingBuilder: (context, child, loadingProgress) {
-                                    if (loadingProgress == null) return child;
-                                    return const SizedBox(
-                                      width: 28,
-                                      height: 28,
-                                      child: Center(
-                                        child: SizedBox(
-                                          width: 14,
-                                          height: 14,
-                                          child: CircularProgressIndicator(strokeWidth: 2),
+                                if (logoUrl.isNotEmpty)
+                                  Image.network(
+                                    logoUrl,
+                                    width: 28,
+                                    height: 28,
+                                    fit: BoxFit.contain,
+                                    loadingBuilder: (context, child, loadingProgress) {
+                                      if (loadingProgress == null) return child;
+                                      return const SizedBox(
+                                        width: 28,
+                                        height: 28,
+                                        child: Center(
+                                          child: SizedBox(
+                                            width: 14,
+                                            height: 14,
+                                            child: CircularProgressIndicator(strokeWidth: 2),
+                                          ),
                                         ),
-                                      ),
-                                    );
-                                  },
-                                  errorBuilder: (context, error, stackTrace) => const Icon(
+                                      );
+                                    },
+                                    errorBuilder: (context, error, stackTrace) => const Icon(
+                                      Icons.sports_soccer,
+                                      size: 26,
+                                      color: Colors.white60,
+                                    ),
+                                  )
+                                else
+                                  const Icon(
                                     Icons.sports_soccer,
                                     size: 26,
                                     color: Colors.white60,
                                   ),
-                                ),
                                 const SizedBox(width: 10),
                                 Expanded(
                                   child: Text(
