@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/onboarding_service.dart';
 import '../theme/app_theme.dart';
+import '../utils/app_constants.dart';
 import 'league_detail_screen.dart';
 import 'team_detail_screen.dart';
 
@@ -17,7 +18,6 @@ class _FavoritesScreenState extends State<FavoritesScreen> with SingleTickerProv
   List<String> _favoriteLeagues = [];
   bool _isLoading = true;
 
-  // خريطة أسماء الدوريات
   final Map<String, String> leagueNames = const {
     'CL': 'دوري أبطال أوروبا',
     'PL': 'الدوري الإنجليزي',
@@ -54,16 +54,12 @@ class _FavoritesScreenState extends State<FavoritesScreen> with SingleTickerProv
   }
 
   Future<void> _removeTeam(String team) async {
-    setState(() {
-      _favoriteTeams.remove(team);
-    });
+    setState(() => _favoriteTeams.remove(team));
     await OnboardingService.instance.saveTeams(_favoriteTeams);
   }
 
   Future<void> _removeLeague(String league) async {
-    setState(() {
-      _favoriteLeagues.remove(league);
-    });
+    setState(() => _favoriteLeagues.remove(league));
     await OnboardingService.instance.saveLeagues(_favoriteLeagues);
   }
 
@@ -81,10 +77,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> with SingleTickerProv
       appBar: AppBar(
         backgroundColor: AppColors.card,
         elevation: 0,
-        title: const Text(
-          'المفضلة',
-          style: TextStyle(color: AppColors.gold, fontWeight: FontWeight.bold),
-        ),
+        title: const Text('المفضلة', style: TextStyle(color: AppColors.gold, fontWeight: FontWeight.bold)),
         bottom: TabBar(
           controller: _tabController,
           indicatorColor: AppColors.gold,
@@ -99,119 +92,83 @@ class _FavoritesScreenState extends State<FavoritesScreen> with SingleTickerProv
       body: TabBarView(
         controller: _tabController,
         children: [
-          // قائمة الفرق المفضلة
+          // الفرق
           _favoriteTeams.isEmpty
               ? _buildEmptyState('لا توجد فرق في المفضلة حالياً')
-              : RefreshIndicator(
-                  color: AppColors.gold,
-                  onRefresh: _loadFavorites,
-                  child: ListView.builder(
-                    padding: const EdgeInsets.all(12),
-                    itemCount: _favoriteTeams.length,
-                    itemBuilder: (context, index) {
-                      final team = _favoriteTeams[index];
-                      return Container(
-                        margin: const EdgeInsets.only(bottom: 8),
-                        decoration: BoxDecoration(
-                          color: AppColors.card,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: AppColors.border),
+              : ListView.builder(
+                  padding: const EdgeInsets.all(12),
+                  itemCount: _favoriteTeams.length,
+                  itemBuilder: (context, index) {
+                    final team = _favoriteTeams[index];
+                    final badgeUrl = AppConstants.teamBadges[team];
+
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      decoration: BoxDecoration(
+                        color: AppColors.card,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppColors.border),
+                      ),
+                      child: ListTile(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => TeamDetailScreen(teamName: team)),
+                          );
+                        },
+                        leading: badgeUrl != null
+                            ? Image.network(badgeUrl, width: 32, height: 32, errorBuilder: (_, __, ___) => const Icon(Icons.sports_soccer, color: AppColors.gold))
+                            : const Icon(Icons.sports_soccer, color: AppColors.gold, size: 28),
+                        title: Text(team, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                        subtitle: const Text('اضغط لعرض المباريات والنتائج', style: TextStyle(color: AppColors.muted, fontSize: 11)),
+                        trailing: IconButton(
+                          icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                          onPressed: () => _removeTeam(team),
                         ),
-                        child: ListTile(
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => TeamDetailScreen(teamName: team),
-                              ),
-                            );
-                          },
-                          leading: const Icon(Icons.sports_soccer, color: AppColors.gold),
-                          title: Text(
-                            team,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          subtitle: const Text(
-                            'اضغط لعرض التفاصيل والمباريات',
-                            style: TextStyle(color: AppColors.muted, fontSize: 11),
-                          ),
-                          trailing: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              IconButton(
-                                icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
-                                onPressed: () => _removeTeam(team),
-                              ),
-                              const Icon(Icons.arrow_forward_ios, size: 14, color: AppColors.muted),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
-                  ),
+                      ),
+                    );
+                  },
                 ),
 
-          // قائمة الدوريات المفضلة
+          // الدوريات
           _favoriteLeagues.isEmpty
               ? _buildEmptyState('لا توجد دوريات في المفضلة حالياً')
-              : RefreshIndicator(
-                  color: AppColors.gold,
-                  onRefresh: _loadFavorites,
-                  child: ListView.builder(
-                    padding: const EdgeInsets.all(12),
-                    itemCount: _favoriteLeagues.length,
-                    itemBuilder: (context, index) {
-                      final leagueCode = _favoriteLeagues[index];
-                      final displayName = leagueNames[leagueCode] ?? leagueCode;
+              : ListView.builder(
+                  padding: const EdgeInsets.all(12),
+                  itemCount: _favoriteLeagues.length,
+                  itemBuilder: (context, index) {
+                    final leagueCode = _favoriteLeagues[index];
+                    final displayName = leagueNames[leagueCode] ?? leagueCode;
+                    final badgeUrl = AppConstants.leagueBadges[leagueCode];
 
-                      return Container(
-                        margin: const EdgeInsets.only(bottom: 8),
-                        decoration: BoxDecoration(
-                          color: AppColors.card,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: AppColors.border),
-                        ),
-                        child: ListTile(
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => LeagueDetailScreen(
-                                  leagueName: displayName,
-                                  leagueCode: leagueCode,
-                                ),
-                              ),
-                            );
-                          },
-                          leading: const Icon(Icons.emoji_events_outlined, color: AppColors.gold),
-                          title: Text(
-                            displayName,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w600,
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      decoration: BoxDecoration(
+                        color: AppColors.card,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppColors.border),
+                      ),
+                      child: ListTile(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => LeagueDetailScreen(leagueName: displayName, leagueCode: leagueCode),
                             ),
-                          ),
-                          subtitle: const Text(
-                            'اضغط لعرض المباريات والترتيب',
-                            style: TextStyle(color: AppColors.muted, fontSize: 11),
-                          ),
-                          trailing: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              IconButton(
-                                icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
-                                onPressed: () => _removeLeague(leagueCode),
-                              ),
-                              const Icon(Icons.arrow_forward_ios, size: 14, color: AppColors.muted),
-                            ],
-                          ),
+                          );
+                        },
+                        leading: badgeUrl != null
+                            ? Image.network(badgeUrl, width: 30, height: 30, errorBuilder: (_, __, ___) => const Icon(Icons.emoji_events, color: AppColors.gold))
+                            : const Icon(Icons.emoji_events, color: AppColors.gold, size: 28),
+                        title: Text(displayName, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                        subtitle: const Text('اضغط لعرض المباريات والترتيب', style: TextStyle(color: AppColors.muted, fontSize: 11)),
+                        trailing: IconButton(
+                          icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                          onPressed: () => _removeLeague(leagueCode),
                         ),
-                      );
-                    },
-                  ),
+                      ),
+                    );
+                  },
                 ),
         ],
       ),
