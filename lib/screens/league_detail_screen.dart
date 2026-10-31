@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import '../theme/app_theme.dart';
-import '../utils/app_constants.dart';
 
 class LeagueDetailScreen extends StatefulWidget {
   final String leagueName;
@@ -50,12 +49,10 @@ class _LeagueDetailScreenState extends State<LeagueDetailScreen>
     try {
       final headers = {'X-Auth-Token': _apiKey};
 
-      // جلب المباريات
       final matchesUrl = Uri.parse(
           'https://api.football-data.org/v4/competitions/${widget.leagueCode}/matches');
       final matchesRes = await http.get(matchesUrl, headers: headers);
 
-      // جلب جدول الترتيب
       final standingsUrl = Uri.parse(
           'https://api.football-data.org/v4/competitions/${widget.leagueCode}/standings');
       final standingsRes = await http.get(standingsUrl, headers: headers);
@@ -158,10 +155,8 @@ class _LeagueDetailScreenState extends State<LeagueDetailScreen>
         itemCount: _matches.length,
         itemBuilder: (context, index) {
           final match = _matches[index];
-          final rawHome = match['homeTeam']?['name'] ?? '';
-          final rawAway = match['awayTeam']?['name'] ?? '';
-          final homeTeam = AppConstants.translateTeam(rawHome);
-          final awayTeam = AppConstants.translateTeam(rawAway);
+          final homeTeam = match['homeTeam']?['name'] ?? '';
+          final awayTeam = match['awayTeam']?['name'] ?? '';
           final homeScore = match['score']?['fullTime']?['home'];
           final awayScore = match['score']?['fullTime']?['away'];
           final status = match['status'] ?? '';
@@ -192,7 +187,7 @@ class _LeagueDetailScreenState extends State<LeagueDetailScreen>
                   ),
                   child: Text(
                     status == 'FINISHED'
-                        ? '$homeScore -$awayScore'
+                        ? '$homeScore - $awayScore'
                         : (status == 'IN_PLAY' || status == 'LIVE' ? 'مباشر' : 'لم تبدأ'),
                     style: const TextStyle(
                       color: AppColors.gold,
@@ -204,3 +199,67 @@ class _LeagueDetailScreenState extends State<LeagueDetailScreen>
                 Expanded(
                   child: Text(
                     awayTeam,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildStandingsTab() {
+    if (_standings.isEmpty) {
+      return const Center(
+        child: Text('جدول الترتيب غير متاح حالياً', style: TextStyle(color: AppColors.muted)),
+      );
+    }
+
+    return RefreshIndicator(
+      color: AppColors.gold,
+      onRefresh: _fetchLeagueData,
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(12),
+        child: Container(
+          decoration: BoxDecoration(
+            color: AppColors.card,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.border),
+          ),
+          child: DataTable(
+            horizontalMargin: 8,
+            columnSpacing: 14,
+            columns: const [
+              DataColumn(label: Text('#', style: TextStyle(color: AppColors.gold))),
+              DataColumn(label: Text('الفريق', style: TextStyle(color: AppColors.gold))),
+              DataColumn(label: Text('لعب', style: TextStyle(color: AppColors.gold))),
+              DataColumn(label: Text('فارق', style: TextStyle(color: AppColors.gold))),
+              DataColumn(label: Text('نقاط', style: TextStyle(color: AppColors.gold))),
+            ],
+            rows: _standings.map((team) {
+              return DataRow(cells: [
+                DataCell(Text('${team['position'] ?? ''}', style: const TextStyle(color: Colors.white70))),
+                DataCell(
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 110),
+                    child: Text(
+                      team['team']?['name'] ?? '',
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ),
+                DataCell(Text('${team['playedGames'] ?? ''}', style: const TextStyle(color: Colors.white70))),
+                DataCell(Text('${team['goalDifference'] ?? ''}', style: const TextStyle(color: Colors.white70))),
+                DataCell(Text('${team['points'] ?? ''}', style: const TextStyle(color: AppColors.gold, fontWeight: FontWeight.bold))),
+              ]);
+            }).toList(),
+          ),
+        ),
+      ),
+    );
+  }
+}
