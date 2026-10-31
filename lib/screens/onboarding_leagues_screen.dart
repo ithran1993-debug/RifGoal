@@ -11,7 +11,6 @@ class OnboardingLeaguesScreen extends StatefulWidget {
 }
 
 class _OnboardingLeaguesScreenState extends State<OnboardingLeaguesScreen> {
-  // مطابقة المعرفات الرقمية مع API-Sports
   final List> leagues = const [
     {'code': '2', 'name': 'دوري أبطال أوروبا', 'emoji': '🏆'},
     {'code': '39', 'name': 'الدوري الإنجليزي', 'emoji': '🏴󠁧󠁢󠁥󠁮󠁧󠁿'},
