@@ -5,15 +5,15 @@ import 'league_detail_screen.dart';
 class LeaguesScreen extends StatelessWidget {
   const LeaguesScreen({super.key});
 
-  final List leagues = const [
-    {'name': 'دوري أبطال أوروبا', 'code': 'CL', 'country': 'أوروبا', 'emoji': '🏆'},
-    {'name': 'الدوري الإنجليزي', 'code': 'PL', 'country': 'إنجلترا', 'emoji': '🏴󠁧󠁢󠁥󠁮󠁧󠁿'},
-    {'name': 'الدوري الإسباني', 'code': 'PD', 'country': 'إسبانيا', 'emoji': '🇪🇸'},
-    {'name': 'الدوري الإيطالي', 'code': 'SA', 'country': 'إيطاليا', 'emoji': '🇮🇹'},
-    {'name': 'الدوري الألماني', 'code': 'BL1', 'country': 'ألمانيا', 'emoji': '🇩🇪'},
-    {'name': 'الدوري الفرنسي', 'code': 'FL1', 'country': 'فرنسا', 'emoji': '🇫🇷'},
-    {'name': 'الدوري الأوروبي', 'code': 'EL', 'country': 'أوروبا', 'emoji': '🌍'},
-    {'name': 'البطولة المغربية', 'code': 'BOTOLA', 'country': 'المغرب', 'emoji': '🇲🇦'},
+  final List> leagues = const [
+    {'name': 'دوري أبطال أوروبا', 'code': '2', 'country': 'أوروبا', 'emoji': '🏆'},
+    {'name': 'الدوري الإنجليزي', 'code': '39', 'country': 'إنجلترا', 'emoji': '🏴󠁧󠁢󠁥󠁮󠁧󠁿'},
+    {'name': 'الدوري الإسباني', 'code': '140', 'country': 'إسبانيا', 'emoji': '🇪🇸'},
+    {'name': 'الدوري الإيطالي', 'code': '135', 'country': 'إيطاليا', 'emoji': '🇮🇹'},
+    {'name': 'الدوري الألماني', 'code': '78', 'country': 'ألمانيا', 'emoji': '🇩🇪'},
+    {'name': 'الدوري الفرنسي', 'code': '61', 'country': 'فرنسا', 'emoji': '🇫🇷'},
+    {'name': 'الدوري الأوروبي', 'code': '3', 'country': 'أوروبا', 'emoji': '🌍'},
+    {'name': 'البطولة المغربية', 'code': '200', 'country': 'المغرب', 'emoji': '🇲🇦'},
   ];
 
   @override
