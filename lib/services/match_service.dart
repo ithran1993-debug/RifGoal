@@ -98,7 +98,7 @@ class MatchService {
           // النتيجة
           String scoreText = 'vs';
           if (goals['home'] != null && goals['away'] != null) {
-            scoreText = '${goals['home']} -${goals['away']}';
+            scoreText = '${goals['home']} - ${goals['away']}';
           }
 
           // توقيت وتاريخ اللقاء
@@ -164,3 +164,27 @@ class MatchService {
         }
         return minutes;
       }
+    } catch (e) {
+      debugPrint('Error getRealGoalMinutes: $e');
+    }
+    return [];
+  }
+
+  // 3. تصفية المباريات بحسب الدوري
+  static Future<List<Match>> getByLeague(String leagueId) async {
+    final matches = await getMatches();
+    if (leagueId.toLowerCase() == 'all') return matches;
+    return matches.where((m) => m.league.toLowerCase() == leagueId.toLowerCase()).toList();
+  }
+
+  // 4. تصفية المباريات بحسب الفريق
+  static Future<List<Match>> getByTeam(String teamName) async {
+    final matches = await getMatches();
+    return matches.where((m) =>
+      m.home.name.contains(teamName) ||
+      m.away.name.contains(teamName) ||
+      teamName.contains(m.home.name) ||
+      teamName.contains(m.away.name)
+    ).toList();
+  }
+}
