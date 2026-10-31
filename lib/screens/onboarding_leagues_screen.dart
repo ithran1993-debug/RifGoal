@@ -11,7 +11,7 @@ class OnboardingLeaguesScreen extends StatefulWidget {
 }
 
 class _OnboardingLeaguesScreenState extends State<OnboardingLeaguesScreen> {
-  final List> leagues = const [
+  final List leagues = const [
     {'code': '2', 'name': 'دوري أبطال أوروبا', 'emoji': '🏆'},
     {'code': '39', 'name': 'الدوري الإنجليزي', 'emoji': '🏴󠁧󠁢󠁥󠁮󠁧󠁿'},
     {'code': '140', 'name': 'الدوري الإسباني', 'emoji': '🇪🇸'},
