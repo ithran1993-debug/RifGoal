@@ -15,7 +15,6 @@ class OnboardingTeamsScreen extends StatefulWidget {
 class _OnboardingTeamsScreenState extends State<OnboardingTeamsScreen> {
   final Set<String> selected = {};
 
-  // قائمة الفرق مع روابط الشعارات الرسمية المباشرة
   final Map<String, List>> teamsByLeague = const {
     'CL': [
       {'name': 'ريال مدريد', 'logo': 'https://crests.football-data.org/86.png'},
