@@ -18,14 +18,23 @@ class _FavoritesScreenState extends State<FavoritesScreen> with SingleTickerProv
   List<String> _favoriteLeagues = [];
   bool _isLoading = true;
 
+  // دعم المعرفات الرقمية الخاصة بـ API-Sports والرموز القديمة معاً
   final Map<String, String> leagueNames = const {
+    '2': 'دوري أبطال أوروبا',
     'CL': 'دوري أبطال أوروبا',
+    '39': 'الدوري الإنجليزي',
     'PL': 'الدوري الإنجليزي',
+    '140': 'الدوري الإسباني',
     'PD': 'الدوري الإسباني',
+    '135': 'الدوري الإيطالي',
     'SA': 'الدوري الإيطالي',
+    '78': 'الدوري الألماني',
     'BL1': 'الدوري الألماني',
+    '61': 'الدوري الفرنسي',
     'FL1': 'الدوري الفرنسي',
+    '3': 'الدوري الأوروبي',
     'EL': 'الدوري الأوروبي',
+    '200': 'البطولة المغربية',
     'BOTOLA': 'البطولة المغربية',
   };
 
@@ -46,11 +55,13 @@ class _FavoritesScreenState extends State<FavoritesScreen> with SingleTickerProv
     setState(() => _isLoading = true);
     final teams = await OnboardingService.instance.getTeams();
     final leagues = await OnboardingService.instance.getLeagues();
-    setState(() {
-      _favoriteTeams = teams;
-      _favoriteLeagues = leagues;
-      _isLoading = false;
-    });
+    if (mounted) {
+      setState(() {
+        _favoriteTeams = teams;
+        _favoriteLeagues = leagues;
+        _isLoading = false;
+      });
+    }
   }
 
   Future<void> _removeTeam(String team) async {
@@ -117,7 +128,12 @@ class _FavoritesScreenState extends State<FavoritesScreen> with SingleTickerProv
                           );
                         },
                         leading: badgeUrl != null
-                            ? Image.network(badgeUrl, width: 32, height: 32, errorBuilder: (_, __, ___) => const Icon(Icons.sports_soccer, color: AppColors.gold))
+                            ? Image.network(
+                                badgeUrl,
+                                width: 32,
+                                height: 32,
+                                errorBuilder: (_, __, ___) => const Icon(Icons.sports_soccer, color: AppColors.gold),
+                              )
                             : const Icon(Icons.sports_soccer, color: AppColors.gold, size: 28),
                         title: Text(team, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
                         subtitle: const Text('اضغط لعرض المباريات والنتائج', style: TextStyle(color: AppColors.muted, fontSize: 11)),
@@ -158,33 +174,12 @@ class _FavoritesScreenState extends State<FavoritesScreen> with SingleTickerProv
                           );
                         },
                         leading: badgeUrl != null
-                            ? Image.network(badgeUrl, width: 30, height: 30, errorBuilder: (_, __, ___) => const Icon(Icons.emoji_events, color: AppColors.gold))
+                            ? Image.network(
+                                badgeUrl,
+                                width: 30,
+                                height: 30,
+                                errorBuilder: (_, __, ___) => const Icon(Icons.emoji_events, color: AppColors.gold),
+                              )
                             : const Icon(Icons.emoji_events, color: AppColors.gold, size: 28),
                         title: Text(displayName, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-                        subtitle: const Text('اضغط لعرض المباريات والترتيب', style: TextStyle(color: AppColors.muted, fontSize: 11)),
-                        trailing: IconButton(
-                          icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
-                          onPressed: () => _removeLeague(leagueCode),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildEmptyState(String message) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.favorite_border, size: 55, color: AppColors.muted),
-          const SizedBox(height: 12),
-          Text(message, style: const TextStyle(color: AppColors.muted, fontSize: 14)),
-        ],
-      ),
-    );
-  }
-}
+                        subtitle: const Text('اضغط لعرض المباريات والترتيب', style: TextStyle(color: AppColors.muted, fontSize:
