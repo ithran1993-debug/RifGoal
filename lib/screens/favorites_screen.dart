@@ -18,7 +18,6 @@ class _FavoritesScreenState extends State<FavoritesScreen> with SingleTickerProv
   List<String> _favoriteLeagues = [];
   bool _isLoading = true;
 
-  // دعم المعرفات الرقمية الخاصة بـ API-Sports والرموز القديمة معاً
   final Map<String, String> leagueNames = const {
     '2': 'دوري أبطال أوروبا',
     'CL': 'دوري أبطال أوروبا',
@@ -182,4 +181,30 @@ class _FavoritesScreenState extends State<FavoritesScreen> with SingleTickerProv
                               )
                             : const Icon(Icons.emoji_events, color: AppColors.gold, size: 28),
                         title: Text(displayName, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-                        subtitle: const Text('اضغط لعرض المباريات والترتيب', style: TextStyle(color: AppColors.muted, fontSize:
+                        subtitle: const Text('اضغط لعرض المباريات والترتيب', style: TextStyle(color: AppColors.muted, fontSize: 11)),
+                        trailing: IconButton(
+                          icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                          onPressed: () => _removeLeague(leagueCode),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyState(String message) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.favorite_border, size: 55, color: AppColors.muted),
+          const SizedBox(height: 12),
+          Text(message, style: const TextStyle(color: AppColors.muted, fontSize: 14)),
+        ],
+      ),
+    );
+  }
+}
