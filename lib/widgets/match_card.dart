@@ -35,7 +35,7 @@ class MatchCard extends StatelessWidget {
     final int? homeScore = _extractScore('home');
     final int? awayScore = _extractScore('away');
 
-    // 5. استخراج الدقيقة ودقائق الأهداف
+    // 5. استخراج الدقيقة ودقائق الأهداف بدقة
     final int minute = _extractMinute(isHalfTime);
     final List<int> goalMinutes = _extractGoalMinutes(isLive, homeScore, awayScore, minute);
 
@@ -182,7 +182,7 @@ class MatchCard extends StatelessWidget {
     );
   }
 
-  // --- دوال تحليل البيانات المرنة (تدعم Map و Class) ---
+  // --- دوال تحليل البيانات واستخراج الدقيقة بدقة ---
 
   String _extractStatus() {
     if (match is Map) {
@@ -252,23 +252,71 @@ class MatchCard extends StatelessWidget {
 
   int _extractMinute(bool isHalfTime) {
     if (isHalfTime) return 45;
-    if (match is Map) {
-      final min = match['minute'];
-      if (min != null) return int.tryParse(min.toString().replaceAll("'", "")) ?? 35;
+
+    // 1. فحص إذا كانت الدقيقة قادمة من الـ API
+    if (match is Map && match['minute'] != null) {
+      final parsed = int.tryParse(match['minute'].toString().replaceAll("'", ""));
+      if (parsed != null && parsed > 0) return parsed;
     }
     try {
-      if (match.minute != null) return int.tryParse(match.minute.toString().replaceAll("'", "")) ?? 35;
+      if (match.minute != null) {
+        final parsed = int.tryParse(match.minute.toString().replaceAll("'", ""));
+        if (parsed != null && parsed > 0) return parsed;
+      }
     } catch (_) {}
-    return 35;
+
+    // 2. الحساب الزمني الديناميكي بناءً على وقت انطلاق المباراة (utcDate)
+    DateTime? startTime;
+    if (match is Map && match['utcDate'] != null) {
+      startTime = DateTime.tryParse(match['utcDate'].toString());
+    } else {
+      try {
+        startTime = match.date;
+      } catch (_) {}
+    }
+
+    if (startTime != null) {
+      final nowUtc = DateTime.now().toUtc();
+      final diffInMin = nowUtc.difference(startTime.toUtc()).inMinutes;
+
+      if (diffInMin > 0) {
+        if (diffInMin <= 45) return diffInMin;
+        if (diffInMin <= 60) return 45; // استراحة بين الشوطين
+        final secondHalfMin = diffInMin - 15;
+        return secondHalfMin.clamp(46, 90);
+      }
+    }
+
+    return 1;
   }
 
   List<int> _extractGoalMinutes(bool isLive, int? homeScore, int? awayScore, int currentMin) {
-    if (match is Map && match['goalMinutes'] is List) {
-      return (match['goalMinutes'] as List).map((e) => int.tryParse(e.toString()) ?? currentMin).toList();
+    // 1. إذا كانت الـ API توفر مصفوفة تفاصيل الأهداف
+    if (match is Map) {
+      if (match['goals'] is List && (match['goals'] as List).isNotEmpty) {
+        return (match['goals'] as List)
+            .map((g) => int.tryParse((g['minute'] ?? currentMin).toString()) ?? currentMin)
+            .toList();
+      }
+      if (match['goalMinutes'] is List && (match['goalMinutes'] as List).isNotEmpty) {
+        return (match['goalMinutes'] as List)
+            .map((m) => int.tryParse(m.toString()) ?? currentMin)
+            .toList();
+      }
     }
-    if (isLive && ((homeScore ?? 0) + (awayScore ?? 0) > 0)) {
-      return [currentMin];
+
+    // 2. توزيع الأهداف المسجلة في دقائق مختلفة على مسار الـ 90 دقيقة
+    final int totalGoals = (homeScore ?? 0) + (awayScore ?? 0);
+    if (totalGoals > 0) {
+      final List<int> minutes = [];
+      for (int i = 1; i <= totalGoals; i++) {
+        // وضع كل هدف في دقيقة منفصلة سابقة للدقيقة الحالية لتظهر كل كرة في زاويتها الخاصة
+        final int target = ((currentMin / (totalGoals + 1)) * i).round().clamp(1, 89);
+        minutes.add(target);
+      }
+      return minutes;
     }
+
     return [];
   }
 
