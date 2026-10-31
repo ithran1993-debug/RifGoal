@@ -20,7 +20,7 @@ class _TeamDetailScreenState extends State<TeamDetailScreen> {
   static const String _apiKey = '60380bdc41e945a2c17619bdcc6944bf';
   static const String _baseUrl = 'https://v3.football.api-sports.io';
 
-  // معرّفات الأندية الرسمية في API-Sports
+  // معرّفات الأندية في API-Sports
   final Map<String, int> teamIds = const {
     'ريال مدريد': 541,
     'برشلونة': 529,
@@ -59,7 +59,7 @@ class _TeamDetailScreenState extends State<TeamDetailScreen> {
   Future<void> _fetchMatches() async {
     final teamId = teamIds[widget.teamName];
     if (teamId == null) {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
       return;
     }
 
@@ -94,4 +94,147 @@ class _TeamDetailScreenState extends State<TeamDetailScreen> {
       appBar: AppBar(
         backgroundColor: AppColors.card,
         elevation: 0,
-        title: Text(widget.teamName, style: const TextStyle(
+        title: Text(
+          widget.teamName,
+          style: const TextStyle(color: AppColors.gold, fontWeight: FontWeight.bold),
+        ),
+      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator(color: AppColors.gold))
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: [
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: AppColors.card,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: AppColors.border),
+                    ),
+                    child: Column(
+                      children: [
+                        badgeUrl != null
+                            ? Image.network(
+                                badgeUrl,
+                                width: 70,
+                                height: 70,
+                                errorBuilder: (_, __, ___) => const Icon(
+                                  Icons.sports_soccer,
+                                  size: 60,
+                                  color: AppColors.gold,
+                                ),
+                              )
+                            : const Icon(Icons.sports_soccer, size: 60, color: AppColors.gold),
+                        const SizedBox(height: 12),
+                        Text(
+                          widget.teamName,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        const Text('نادي مفضل', style: TextStyle(color: AppColors.muted, fontSize: 13)),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: Text(
+                      'مباريات ${widget.teamName}',
+                      style: const TextStyle(
+                        color: AppColors.gold,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  _teamMatches.isEmpty
+                      ? Container(
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                            color: AppColors.card,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Center(
+                            child: Text(
+                              'لا توجد مباريات مسجلة حالياً لهذا النادي',
+                              style: TextStyle(color: AppColors.muted),
+                            ),
+                          ),
+                        )
+                      : ListView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: _teamMatches.length,
+                          itemBuilder: (context, index) {
+                            final item = _teamMatches[index];
+                            final teams = item['teams'] ?? {};
+                            final goals = item['goals'] ?? {};
+
+                            final hRaw = (teams['home']?['name'] ?? 'المضيف').toString();
+                            final aRaw = (teams['away']?['name'] ?? 'الضيف').toString();
+                            final hName = AppConstants.translateTeam(hRaw);
+                            final aName = AppConstants.translateTeam(aRaw);
+
+                            final hScore = goals['home'] ?? '-';
+                            final aScore = goals['away'] ?? '-';
+
+                            return Container(
+                              margin: const EdgeInsets.only(bottom: 8),
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: AppColors.card,
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(color: AppColors.border),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      hName,
+                                      textAlign: TextAlign.right,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(color: Colors.white, fontSize: 13),
+                                    ),
+                                  ),
+                                  Container(
+                                    margin: const EdgeInsets.symmetric(horizontal: 8),
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.background,
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: Text(
+                                      '$hScore : $aScore',
+                                      style: const TextStyle(
+                                        color: AppColors.gold,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                  Expanded(
+                                    child: Text(
+                                      aName,
+                                      textAlign: TextAlign.left,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(color: Colors.white, fontSize: 13),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                ],
+              ),
+            ),
+    );
+  }
+}
