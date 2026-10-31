@@ -11,15 +11,16 @@ class OnboardingLeaguesScreen extends StatefulWidget {
 }
 
 class _OnboardingLeaguesScreenState extends State<OnboardingLeaguesScreen> {
-  final List<Map<String, String>> leagues = const [
-    {'code': 'CL', 'name': 'دوري أبطال أوروبا', 'emoji': '🏆'},
-    {'code': 'PL', 'name': 'الدوري الإنجليزي', 'emoji': '🏴󠁧󠁢󠁥󠁮󠁧󠁿'},
-    {'code': 'PD', 'name': 'الدوري الإسباني', 'emoji': '🇪🇸'},
-    {'code': 'SA', 'name': 'الدوري الإيطالي', 'emoji': '🇮🇹'},
-    {'code': 'BL1', 'name': 'الدوري الألماني', 'emoji': '🇩🇪'},
-    {'code': 'FL1', 'name': 'الدوري الفرنسي', 'emoji': '🇫🇷'},
-    {'code': 'BOTOLA', 'name': 'البطولة المغربية', 'emoji': '🇲🇦'},
-    {'code': 'EL', 'name': 'الدوري الأوروبي', 'emoji': '🌍'},
+  // مطابقة المعرفات الرقمية مع API-Sports
+  final List> leagues = const [
+    {'code': '2', 'name': 'دوري أبطال أوروبا', 'emoji': '🏆'},
+    {'code': '39', 'name': 'الدوري الإنجليزي', 'emoji': '🏴󠁧󠁢󠁥󠁮󠁧󠁿'},
+    {'code': '140', 'name': 'الدوري الإسباني', 'emoji': '🇪🇸'},
+    {'code': '135', 'name': 'الدوري الإيطالي', 'emoji': '🇮🇹'},
+    {'code': '78', 'name': 'الدوري الألماني', 'emoji': '🇩🇪'},
+    {'code': '61', 'name': 'الدوري الفرنسي', 'emoji': '🇫🇷'},
+    {'code': '200', 'name': 'البطولة المغربية', 'emoji': '🇲🇦'},
+    {'code': '3', 'name': 'الدوري الأوروبي', 'emoji': '🌍'},
   ];
 
   final Set<String> selected = {};
@@ -75,7 +76,7 @@ class _OnboardingLeaguesScreenState extends State<OnboardingLeaguesScreen> {
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                       decoration: BoxDecoration(
                         color: isSelected
-                            ? AppColors.gold.withOpacity(0.15)
+                            ? AppColors.gold.withValues(alpha: 0.15)
                             : AppColors.card,
                         borderRadius: BorderRadius.circular(14),
                         border: Border.all(
