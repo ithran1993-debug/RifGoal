@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/match_model.dart';
 import '../services/match_service.dart';
 import '../theme/app_theme.dart';
+import '../utils/app_constants.dart';
 import '../widgets/match_card.dart';
 import 'match_details_screen.dart';
 
@@ -208,70 +209,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 );
               }
 
-              // تجميع مباريات اليوم حسب اسم البطولة
+              // تجميع مباريات اليوم حسب اسم البطولة المعرب
               final Map<String, List<Match>> byLeague = {};
               for (var m in matches) {
-                byLeague.putIfAbsent(m.leagueName, () => []).add(m);
-              }
-
-              return RefreshIndicator(
-                onRefresh: () async => _refresh(),
-                color: AppColors.gold,
-                child: ListView(
-                  padding: const EdgeInsets.symmetric(vertical: 10),
-                  children: byLeague.entries.map((entry) {
-                    return Container(
-                      margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-                      decoration: BoxDecoration(
-                        color: AppColors.card,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: AppColors.border),
-                      ),
-                      child: Column(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                            decoration: const BoxDecoration(
-                              border: Border(bottom: BorderSide(color: AppColors.border)),
-                            ),
-                            child: Row(
-                              children: [
-                                const Text('🏆', style: TextStyle(fontSize: 16)),
-                                const SizedBox(width: 8),
-                                Text(
-                                  entry.key,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 13,
-                                    color: AppColors.text,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          ...entry.value.map((match) {
-                            return MatchCard(
-                              match: match,
-                              onTap: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => MatchDetailsScreen(match: match),
-                                  ),
-                                );
-                              },
-                            );
-                          }).toList(),
-                        ],
-                      ),
-                    );
-                  }).toList(),
-                ),
-              );
-            },
-          ),
-        ),
-      ],
-    );
-  }
-}
+                final translatedLeague = AppConstants.translateLeague(m.league
