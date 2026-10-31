@@ -7,7 +7,9 @@ import 'screens/standings_screen.dart';
 import 'screens/news_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/favorites_screen.dart';
+import 'screens/onboarding_leagues_screen.dart';
 import 'services/favorites_service.dart';
+import 'services/onboarding_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -28,7 +30,7 @@ class RifGoalApp extends StatelessWidget {
       title: 'ريف جول',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.darkTheme,
-      home: const MainShell(),
+      home: const AppStarter(),
       builder: (context, child) {
         return Directionality(
           textDirection: TextDirection.rtl,
@@ -36,6 +38,44 @@ class RifGoalApp extends StatelessWidget {
         );
       },
     );
+  }
+}
+
+class AppStarter extends StatefulWidget {
+  const AppStarter({super.key});
+
+  @override
+  State<AppStarter> createState() => _AppStarterState();
+}
+
+class _AppStarterState extends State<AppStarter> {
+  bool? _done;
+
+  @override
+  void initState() {
+    super.initState();
+    _check();
+  }
+
+  Future<void> _check() async {
+    final done = await OnboardingService.instance.isDone();
+    setState(() => _done = done);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_done == null) {
+      return const Scaffold(
+        backgroundColor: AppColors.background,
+        body: Center(child: CircularProgressIndicator(color: AppColors.gold)),
+      );
+    }
+
+    if (_done == false) {
+      return const OnboardingLeaguesScreen();
+    }
+
+    return const MainShell();
   }
 }
 
@@ -89,35 +129,4 @@ class _MainShellState extends State<MainShell> {
                   'ريف جول',
                   style: TextStyle(
                     fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.gold,
-                  ),
-                ),
-                Text(
-                  'كل الأهداف... كل اللحظات',
-                  style: TextStyle(fontSize: 11, color: AppColors.muted),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-      body: _pages[_currentIndex],
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentIndex,
-        onTap: (i) => setState(() => _currentIndex = i),
-        type: BottomNavigationBarType.fixed,
-        selectedFontSize: 11,
-        unselectedFontSize: 10,
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.sports_soccer), label: 'المباريات'),
-          BottomNavigationBarItem(icon: Icon(Icons.star), label: 'المفضلة'),
-          BottomNavigationBarItem(icon: Icon(Icons.emoji_events), label: 'الدوريات'),
-          BottomNavigationBarItem(icon: Icon(Icons.bar_chart), label: 'الترتيب'),
-          BottomNavigationBarItem(icon: Icon(Icons.newspaper), label: 'أخبار'),
-          BottomNavigationBarItem(icon: Icon(Icons.settings), label: 'الإعدادات'),
-        ],
-      ),
-    );
-  }
-}
+                    fontWeight: FontWeight.bold
