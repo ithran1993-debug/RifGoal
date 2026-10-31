@@ -4,7 +4,6 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:http/http.dart' as http;
 import '../models/match_model.dart';
 import '../services/favorites_service.dart';
-import '../services/match_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/match_minute_circle.dart';
 
@@ -125,7 +124,6 @@ class _MatchDetailsScreenState extends State<MatchDetailsScreen> {
       body: SingleChildScrollView(
         child: Column(
           children: [
-            // بطاقة النتيجة والفريقين
             Container(
               padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
               margin: const EdgeInsets.all(12),
@@ -176,8 +174,6 @@ class _MatchDetailsScreenState extends State<MatchDetailsScreen> {
                 ],
               ),
             ),
-
-            // قائمة أحداث اللقاء (أهداف، إنذارات، تبديلات)
             if (_events.isNotEmpty)
               Container(
                 margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -209,8 +205,6 @@ class _MatchDetailsScreenState extends State<MatchDetailsScreen> {
                   ],
                 ),
               ),
-
-            // تفاصيل الملعب والحكم والجولة
             Container(
               margin: const EdgeInsets.all(12),
               decoration: BoxDecoration(
@@ -316,4 +310,22 @@ class _MatchDetailsScreenState extends State<MatchDetailsScreen> {
     );
   }
 
-  Widget _infoRow(String label, String value, {bool
+  Widget _infoRow(String label, String value, {bool isLast = false}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        border: isLast ? null : const Border(bottom: BorderSide(color: Color(0xFF21262D))),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: const TextStyle(color: AppColors.muted)),
+          Text(
+            value.isNotEmpty ? value : 'غير محدد',
+            style: const TextStyle(fontWeight: FontWeight.w600),
+          ),
+        ],
+      ),
+    );
+  }
+}
