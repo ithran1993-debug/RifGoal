@@ -5,7 +5,7 @@ import 'league_detail_screen.dart';
 class LeaguesScreen extends StatelessWidget {
   const LeaguesScreen({super.key});
 
-  final List> leagues = const [
+  final List leagues = const [
     {'name': 'دوري أبطال أوروبا', 'code': 'CL', 'country': 'أوروبا', 'emoji': '🏆'},
     {'name': 'الدوري الإنجليزي', 'code': 'PL', 'country': 'إنجلترا', 'emoji': '🏴󠁧󠁢󠁥󠁮󠁧󠁿'},
     {'name': 'الدوري الإسباني', 'code': 'PD', 'country': 'إسبانيا', 'emoji': '🇪🇸'},
@@ -40,11 +40,14 @@ class LeaguesScreen extends StatelessWidget {
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Center(
-                child: Text(league['emoji']!, style: const TextStyle(fontSize: 22)),
+                child: Text(
+                  league['emoji'] ?? '',
+                  style: const TextStyle(fontSize: 22),
+                ),
               ),
             ),
             title: Text(
-              league['name']!,
+              league['name'] ?? '',
               style: const TextStyle(
                 fontWeight: FontWeight.w600,
                 fontSize: 15,
@@ -52,8 +55,11 @@ class LeaguesScreen extends StatelessWidget {
               ),
             ),
             subtitle: Text(
-              league['country']!,
-              style: const TextStyle(color: AppColors.muted, fontSize: 12),
+              league['country'] ?? '',
+              style: const TextStyle(
+                color: AppColors.muted,
+                fontSize: 12,
+              ),
             ),
             trailing: const Icon(
               Icons.arrow_forward_ios,
@@ -65,8 +71,8 @@ class LeaguesScreen extends StatelessWidget {
                 context,
                 MaterialPageRoute(
                   builder: (context) => LeagueDetailScreen(
-                    leagueName: league['name']!,
-                    leagueCode: league['code']!,
+                    leagueName: league['name'] ?? '',
+                    leagueCode: league['code'] ?? '',
                   ),
                 ),
               );
