@@ -3,6 +3,18 @@ import '../services/onboarding_service.dart';
 import '../theme/app_theme.dart';
 import 'onboarding_teams_screen.dart';
 
+class LeagueItem {
+  final String code;
+  final String name;
+  final String emoji;
+
+  const LeagueItem({
+    required this.code,
+    required this.name,
+    required this.emoji,
+  });
+}
+
 class OnboardingLeaguesScreen extends StatefulWidget {
   const OnboardingLeaguesScreen({super.key});
 
@@ -11,15 +23,15 @@ class OnboardingLeaguesScreen extends StatefulWidget {
 }
 
 class _OnboardingLeaguesScreenState extends State<OnboardingLeaguesScreen> {
-  final List leagues = const [
-    {'code': '2', 'name': 'دوري أبطال أوروبا', 'emoji': '🏆'},
-    {'code': '39', 'name': 'الدوري الإنجليزي', 'emoji': '🏴󠁧󠁢󠁥󠁮󠁧󠁿'},
-    {'code': '140', 'name': 'الدوري الإسباني', 'emoji': '🇪🇸'},
-    {'code': '135', 'name': 'الدوري الإيطالي', 'emoji': '🇮🇹'},
-    {'code': '78', 'name': 'الدوري الألماني', 'emoji': '🇩🇪'},
-    {'code': '61', 'name': 'الدوري الفرنسي', 'emoji': '🇫🇷'},
-    {'code': '200', 'name': 'البطولة المغربية', 'emoji': '🇲🇦'},
-    {'code': '3', 'name': 'الدوري الأوروبي', 'emoji': '🌍'},
+  final List<LeagueItem> leagues = const [
+    LeagueItem(code: '2', name: 'دوري أبطال أوروبا', emoji: '🏆'),
+    LeagueItem(code: '39', name: 'الدوري الإنجليزي', emoji: '🏴󠁧󠁢󠁥󠁮󠁧󠁿'),
+    LeagueItem(code: '140', name: 'الدوري الإسباني', emoji: '🇪🇸'),
+    LeagueItem(code: '135', name: 'الدوري الإيطالي', emoji: '🇮🇹'),
+    LeagueItem(code: '78', name: 'الدوري الألماني', emoji: '🇩🇪'),
+    LeagueItem(code: '61', name: 'الدوري الفرنسي', emoji: '🇫🇷'),
+    LeagueItem(code: '200', name: 'البطولة المغربية', emoji: '🇲🇦'),
+    LeagueItem(code: '3', name: 'الدوري الأوروبي', emoji: '🌍'),
   ];
 
   final Set<String> selected = {};
@@ -57,16 +69,15 @@ class _OnboardingLeaguesScreenState extends State<OnboardingLeaguesScreen> {
                 itemCount: leagues.length,
                 itemBuilder: (context, index) {
                   final league = leagues[index];
-                  final code = league['code']!;
-                  final isSelected = selected.contains(code);
+                  final isSelected = selected.contains(league.code);
 
                   return GestureDetector(
                     onTap: () {
                       setState(() {
                         if (isSelected) {
-                          selected.remove(code);
+                          selected.remove(league.code);
                         } else {
-                          selected.add(code);
+                          selected.add(league.code);
                         }
                       });
                     },
@@ -85,11 +96,11 @@ class _OnboardingLeaguesScreenState extends State<OnboardingLeaguesScreen> {
                       ),
                       child: Row(
                         children: [
-                          Text(league['emoji']!, style: const TextStyle(fontSize: 28)),
+                          Text(league.emoji, style: const TextStyle(fontSize: 28)),
                           const SizedBox(width: 14),
                           Expanded(
                             child: Text(
-                              league['name']!,
+                              league.name,
                               style: const TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w600,
