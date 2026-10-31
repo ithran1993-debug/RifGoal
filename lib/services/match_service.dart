@@ -1,12 +1,18 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../models/match_model.dart';
 import '../utils/app_constants.dart';
 
 class MatchService {
-  static const String _apiKey = 'eed3b9bde17f4f1694c0796bf739bbb7';
-  static const String _baseUrl = 'https://api.football-data.org/v4';
+  static const String _apiKey = '60380bdc41e945a2c17619bdcc6944bf';
+  static const String _baseUrl = 'https://v3.football.api-sports.io';
 
+  static Map<String, String> get _headers => {
+    'x-apisports-key': _apiKey,
+  };
+
+  // قائمة مباريات احتياطية في حال تعثر الاتصال
   static List<Match> _fallbackMatches() {
     final now = DateTime.now();
     return [
@@ -14,8 +20,8 @@ class MatchService {
         id: '1',
         league: 'cl',
         leagueName: 'دوري أبطال أوروبا',
-        home: Team(name: 'برشلونة', logo: 'https://crests.football-data.org/81.png'),
-        away: Team(name: 'بايرن ميونخ', logo: 'https://crests.football-data.org/5.png'),
+        home: Team(name: 'برشلونة', logo: 'https://media.api-sports.io/football/teams/529.png'),
+        away: Team(name: 'بايرن ميونخ', logo: 'https://media.api-sports.io/football/teams/157.png'),
         score: '2 - 1',
         status: "67'",
         statusClass: 'live',
@@ -23,152 +29,138 @@ class MatchService {
         stadium: 'كامب نو',
         referee: 'مايكل أوليفر',
         round: 'دور الـ 16',
-        date: now,
-      ),
-      Match(
-        id: '2',
-        league: 'cl',
-        leagueName: 'دوري أبطال أوروبا',
-        home: Team(name: 'ريال مدريد', logo: 'https://crests.football-data.org/86.png'),
-        away: Team(name: 'مانشستر سيتي', logo: 'https://crests.football-data.org/65.png'),
-        score: '0 - 0',
-        status: 'شوط',
-        statusClass: 'half',
-        stadium: 'سانتياغو برنابيو',
-        referee: 'دافيد كوت',
-        round: 'دور الـ 16',
+        events: const [],
         date: now,
       ),
     ];
   }
 
-  static Future<List<Match>> getMatches() async {
+  // 1. جلب مباريات اليوم مع تفاصيل الدقائق الحية ودقائق الأهداف
+  static Future<List<Match>> getMatches({String? dateStr}) async {
     try {
-      final now = DateTime.now();
-      final from = now.subtract(const Duration(days: 1)).toIso8601String().substring(0, 10);
-      final to = now.add(const Duration(days: 5)).toIso8601String().substring(0, 10);
-
+      final String targetDate = dateStr ?? DateTime.now().toIso8601String().substring(0, 10);
       final response = await http.get(
-        Uri.parse('$_baseUrl/matches?dateFrom=$from&dateTo=$to'),
-        headers: {'X-Auth-Token': _apiKey},
-      ).timeout(const Duration(seconds: 10));
+        Uri.parse('$_baseUrl/fixtures?date=$targetDate'),
+        headers: _headers,
+      ).timeout(const Duration(seconds: 12));
 
       if (response.statusCode != 200) {
         return _fallbackMatches();
       }
 
       final data = json.decode(response.body);
-      final List list = data['matches'] ?? [];
+      final List fixtures = data['response'] ?? [];
 
-      if (list.isEmpty) {
+      if (fixtures.isEmpty) {
         return _fallbackMatches();
       }
 
       final List<Match> result = [];
 
-      for (final m in list) {
+      for (final item in fixtures) {
         try {
-          final home = m['homeTeam'] ?? {};
-          final away = m['awayTeam'] ?? {};
-          final fullTime = m['score']?['fullTime'] ?? {};
-          final status = (m['status'] ?? 'SCHEDULED').toString();
-          final competition = m['competition'] ?? {};
+          final fixture = item['fixture'] ?? {};
+          final league = item['league'] ?? {};
+          final teams = item['teams'] ?? {};
+          final goals = item['goals'] ?? {};
+          final statusInfo = fixture['status'] ?? {};
+          final shortStatus = (statusInfo['short'] ?? '').toString().toUpperCase();
 
-          DateTime? matchDate;
-          if (m['utcDate'] != null) {
-            matchDate = DateTime.tryParse(m['utcDate'].toString())?.toLocal();
-          }
-
-          String scoreText = 'vs';
-          if (fullTime['home'] != null && fullTime['away'] != null) {
-            scoreText = '${fullTime['home']} - ${fullTime['away']}';
-          }
+          // تحديد الدقيقة المباشرة وحالة المباراة
+          final int? elapsed = statusInfo['elapsed'] != null 
+              ? int.tryParse(statusInfo['elapsed'].toString()) 
+              : null;
 
           String statusClass = 'upcoming';
           String statusText = 'قادمة';
           String? currentMin;
 
-          if (status == 'IN_PLAY' || status == 'LIVE') {
+          if (['1H', '2H', 'ET', 'LIVE'].contains(shortStatus)) {
             statusClass = 'live';
-            currentMin = (m['minute'] ?? 35).toString();
+            currentMin = (elapsed ?? 1).toString();
             statusText = "'$currentMin";
-          } else if (status == 'PAUSED') {
+          } else if (shortStatus == 'HT') {
             statusClass = 'half';
             statusText = 'استراحة';
-          } else if (status == 'FINISHED') {
+            currentMin = '45';
+          } else if (['FT', 'AET', 'PEN'].contains(shortStatus)) {
             statusClass = 'finished';
             statusText = 'انتهى';
-          } else if (matchDate != null) {
-            final h = matchDate.hour.toString().padLeft(2, '0');
-            final min = matchDate.minute.toString().padLeft(2, '0');
-            statusText = '$h:$min';
+          } else if (fixture['date'] != null) {
+            final dt = DateTime.tryParse(fixture['date'].toString())?.toLocal();
+            if (dt != null) {
+              final h = dt.hour.toString().padLeft(2, '0');
+              final m = dt.minute.toString().padLeft(2, '0');
+              statusText = '$h:$m';
+            }
           }
 
-          final homeRaw = (home['shortName'] ?? home['name'] ?? 'فريق').toString();
-          final awayRaw = (away['shortName'] ?? away['name'] ?? 'فريق').toString();
+          // النتيجة
+          String scoreText = 'vs';
+          if (goals['home'] != null && goals['away'] != null) {
+            scoreText = '${goals['home']} -${goals['away']}';
+          }
+
+          // توقيت وتاريخ اللقاء
+          DateTime? matchDate;
+          if (fixture['date'] != null) {
+            matchDate = DateTime.tryParse(fixture['date'].toString())?.toLocal();
+          }
+
+          final homeRaw = (teams['home']?['name'] ?? 'المضيف').toString();
+          final awayRaw = (teams['away']?['name'] ?? 'الضيف').toString();
 
           result.add(Match(
-            id: m['id'].toString(),
-            league: (competition['code'] ?? 'unknown').toString().toLowerCase(),
-            leagueName: AppConstants.translateLeague(competition['name']),
+            id: fixture['id'].toString(),
+            league: (league['id'] ?? 'league').toString(),
+            leagueName: AppConstants.translateLeague((league['name'] ?? '').toString()),
             home: Team(
               name: AppConstants.translateTeam(homeRaw),
-              logo: (home['crest'] ?? '').toString(),
+              logo: (teams['home']?['logo'] ?? '').toString(),
             ),
             away: Team(
               name: AppConstants.translateTeam(awayRaw),
-              logo: (away['crest'] ?? '').toString(),
+              logo: (teams['away']?['logo'] ?? '').toString(),
             ),
             score: scoreText,
             status: statusText,
             statusClass: statusClass,
             minute: currentMin,
-            stadium: (m['venue'] ?? 'غير محدد').toString(),
-            referee: 'غير محدد',
-            round: m['matchday'] != null ? 'الجولة ${m['matchday']}' : '',
+            stadium: (fixture['venue']?['name'] ?? 'غير محدد').toString(),
+            referee: (fixture['referee'] ?? 'غير محدد').toString(),
+            round: (league['round'] ?? '').toString(),
             events: const [],
-            date: matchDate ?? now,
+            date: matchDate ?? DateTime.now(),
           ));
         } catch (_) {}
       }
 
       return result.isEmpty ? _fallbackMatches() : result;
     } catch (e) {
+      debugPrint('Error getMatches: $e');
       return _fallbackMatches();
     }
   }
 
-  static Future<List<Match>> getByLeague(String league) async {
-    final matches = await getMatches();
-    if (league.toLowerCase() == 'all') return matches;
-    return matches.where((m) => m.league.toLowerCase() == league.toLowerCase()).toList();
-  }
-
-  static Future<List<Match>> getByTeam(String teamName) async {
-    final matches = await getMatches();
-    return matches.where((m) =>
-      m.home.name.contains(teamName) ||
-      m.away.name.contains(teamName) ||
-      teamName.contains(m.home.name) ||
-      teamName.contains(m.away.name)
-    ).toList();
-  }
-
-  static Future<List<dynamic>> getStandings(String leagueCode) async {
+  // 2. دالة جلب دقائق الأهداف الحقيقية لأي مباراة مباشرة
+  static Future<List<int>> getRealGoalMinutes(String fixtureId) async {
     try {
-      final res = await http.get(
-        Uri.parse('$_baseUrl/competitions/$leagueCode/standings'),
-        headers: {'X-Auth-Token': _apiKey},
+      final response = await http.get(
+        Uri.parse('$_baseUrl/fixtures/events?fixture=$fixtureId&type=Goal'),
+        headers: _headers,
       ).timeout(const Duration(seconds: 10));
 
-      if (res.statusCode == 200) {
-        final data = json.decode(res.body);
-        final standings = data['standings'] as List? ?? [];
-        if (standings.isNotEmpty) {
-          return standings[0]['table'] ?? [];
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final List events = data['response'] ?? [];
+        final List<int> minutes = [];
+
+        for (var ev in events) {
+          final time = ev['time'];
+          if (time != null && time['elapsed'] != null) {
+            final int? m = int.tryParse(time['elapsed'].toString());
+            if (m != null) minutes.add(m);
+          }
         }
+        return minutes;
       }
-    } catch (_) {}
-    return [];
-  }
-}
