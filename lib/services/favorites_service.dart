@@ -58,7 +58,7 @@ class FavoritesService {
       'stadium': m.stadium,
       'referee': m.referee,
       'round': m.round,
-      'date': m.date?.toIso8601String(),
+      'date': m.date.toIso8601String(),
     };
   }
 
@@ -76,7 +76,8 @@ class FavoritesService {
       stadium: map['stadium'] ?? '',
       referee: map['referee'] ?? '',
       round: map['round'] ?? '',
-      date: map['date'] != null ? DateTime.tryParse(map['date']) : null,
+      events: const [],
+      date: map['date'] != null ? DateTime.tryParse(map['date']) ?? DateTime.now() : DateTime.now(),
     );
   }
 }
