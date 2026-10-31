@@ -15,63 +15,63 @@ class OnboardingTeamsScreen extends StatefulWidget {
 class _OnboardingTeamsScreenState extends State<OnboardingTeamsScreen> {
   final Set<String> selected = {};
 
-  // فرق حسب الدوريات (يمكن توسيعها لاحقاً)
-  final Map<String, List<Map<String, String>>> teamsByLeague = const {
+  // قائمة الفرق مع روابط الشعارات الرسمية المباشرة
+  final Map<String, List>> teamsByLeague = const {
     'CL': [
-      {'name': 'ريال مدريد', 'emoji': '⚪'},
-      {'name': 'برشلونة', 'emoji': '🔵'},
-      {'name': 'مانشستر سيتي', 'emoji': '🩵'},
-      {'name': 'بايرن ميونخ', 'emoji': '🔴'},
-      {'name': 'باريس سان جيرمان', 'emoji': '🔵'},
-      {'name': 'ليفربول', 'emoji': '🔴'},
+      {'name': 'ريال مدريد', 'logo': 'https://crests.football-data.org/86.png'},
+      {'name': 'برشلونة', 'logo': 'https://crests.football-data.org/81.png'},
+      {'name': 'مانشستر سيتي', 'logo': 'https://crests.football-data.org/65.png'},
+      {'name': 'بايرن ميونخ', 'logo': 'https://crests.football-data.org/5.png'},
+      {'name': 'باريس سان جيرمان', 'logo': 'https://crests.football-data.org/524.png'},
+      {'name': 'ليفربول', 'logo': 'https://crests.football-data.org/64.png'},
     ],
     'PL': [
-      {'name': 'مانشستر سيتي', 'emoji': '🩵'},
-      {'name': 'آرسنال', 'emoji': '🔴'},
-      {'name': 'ليفربول', 'emoji': '🔴'},
-      {'name': 'تشيلسي', 'emoji': '🔵'},
-      {'name': 'مانشستر يونايتد', 'emoji': '🔴'},
-      {'name': 'توتنهام', 'emoji': '⚪'},
+      {'name': 'مانشستر سيتي', 'logo': 'https://crests.football-data.org/65.png'},
+      {'name': 'آرسنال', 'logo': 'https://crests.football-data.org/57.png'},
+      {'name': 'ليفربول', 'logo': 'https://crests.football-data.org/64.png'},
+      {'name': 'تشيلسي', 'logo': 'https://crests.football-data.org/61.png'},
+      {'name': 'مانشستر يونايتد', 'logo': 'https://crests.football-data.org/66.png'},
+      {'name': 'توتنهام', 'logo': 'https://crests.football-data.org/73.png'},
     ],
     'PD': [
-      {'name': 'ريال مدريد', 'emoji': '⚪'},
-      {'name': 'برشلونة', 'emoji': '🔵'},
-      {'name': 'أتلتيكو مدريد', 'emoji': '🔴'},
-      {'name': 'إشبيلية', 'emoji': '⚪'},
+      {'name': 'ريال مدريد', 'logo': 'https://crests.football-data.org/86.png'},
+      {'name': 'برشلونة', 'logo': 'https://crests.football-data.org/81.png'},
+      {'name': 'أتلتيكو مدريد', 'logo': 'https://crests.football-data.org/78.png'},
+      {'name': 'إشبيلية', 'logo': 'https://crests.football-data.org/559.png'},
     ],
     'SA': [
-      {'name': 'يوفنتوس', 'emoji': '⚪'},
-      {'name': 'ميلان', 'emoji': '🔴'},
-      {'name': 'إنتر', 'emoji': '🔵'},
-      {'name': 'نابولي', 'emoji': '🔵'},
+      {'name': 'يوفنتوس', 'logo': 'https://crests.football-data.org/109.png'},
+      {'name': 'ميلان', 'logo': 'https://crests.football-data.org/98.png'},
+      {'name': 'إنتر', 'logo': 'https://crests.football-data.org/108.png'},
+      {'name': 'نابولي', 'logo': 'https://crests.football-data.org/113.png'},
     ],
     'BL1': [
-      {'name': 'بايرن ميونخ', 'emoji': '🔴'},
-      {'name': 'دورتموند', 'emoji': '🟡'},
-      {'name': 'لايبزيغ', 'emoji': '🔴'},
+      {'name': 'بايرن ميونخ', 'logo': 'https://crests.football-data.org/5.png'},
+      {'name': 'دورتموند', 'logo': 'https://crests.football-data.org/4.png'},
+      {'name': 'لايبزيغ', 'logo': 'https://crests.football-data.org/721.png'},
     ],
     'FL1': [
-      {'name': 'باريس سان جيرمان', 'emoji': '🔵'},
-      {'name': 'مارسيليا', 'emoji': '🔵'},
-      {'name': 'ليون', 'emoji': '🔵'},
+      {'name': 'باريس سان جيرمان', 'logo': 'https://crests.football-data.org/524.png'},
+      {'name': 'مارسيليا', 'logo': 'https://crests.football-data.org/516.png'},
+      {'name': 'ليون', 'logo': 'https://crests.football-data.org/523.png'},
     ],
     'BOTOLA': [
-      {'name': 'الوداد', 'emoji': '🔴'},
-      {'name': 'الرجاء', 'emoji': '🟢'},
-      {'name': 'الجيش الملكي', 'emoji': '🟢'},
-      {'name': 'الفتح', 'emoji': '🟢'},
-      {'name': 'حسنية أكادير', 'emoji': '🔴'},
-      {'name': 'المغرب الفاسي', 'emoji': '🟡'},
+      {'name': 'الوداد', 'logo': 'https://media.api-sports.io/football/teams/968.png'},
+      {'name': 'الرجاء', 'logo': 'https://media.api-sports.io/football/teams/967.png'},
+      {'name': 'الجيش الملكي', 'logo': 'https://media.api-sports.io/football/teams/969.png'},
+      {'name': 'الفتح', 'logo': 'https://media.api-sports.io/football/teams/970.png'},
+      {'name': 'حسنية أكادير', 'logo': 'https://media.api-sports.io/football/teams/971.png'},
+      {'name': 'المغرب الفاسي', 'logo': 'https://media.api-sports.io/football/teams/973.png'},
     ],
     'EL': [
-      {'name': 'إشبيلية', 'emoji': '⚪'},
-      {'name': 'روما', 'emoji': '🟡'},
-      {'name': 'آرسنال', 'emoji': '🔴'},
+      {'name': 'إشبيلية', 'logo': 'https://crests.football-data.org/559.png'},
+      {'name': 'روما', 'logo': 'https://crests.football-data.org/100.png'},
+      {'name': 'آرسنال', 'logo': 'https://crests.football-data.org/57.png'},
     ],
   };
 
-  List<Map<String, String>> get availableTeams {
-    final List<Map<String, String>> teams = [];
+  List> get availableTeams {
+    final List> teams = [];
     final Set<String> added = {};
 
     final leagues = widget.selectedLeagues.isEmpty
@@ -150,6 +150,7 @@ class _OnboardingTeamsScreenState extends State<OnboardingTeamsScreen> {
                       itemBuilder: (context, index) {
                         final team = teams[index];
                         final name = team['name']!;
+                        final logoUrl = team['logo']!;
                         final isSelected = selected.contains(name);
 
                         return GestureDetector(
@@ -163,10 +164,10 @@ class _OnboardingTeamsScreenState extends State<OnboardingTeamsScreen> {
                             });
                           },
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            padding: const EdgeInsets.symmetric(horizontal: 10),
                             decoration: BoxDecoration(
                               color: isSelected
-                                  ? AppColors.gold.withOpacity(0.15)
+                                  ? AppColors.gold.withValues(alpha: 0.15)
                                   : AppColors.card,
                               borderRadius: BorderRadius.circular(12),
                               border: Border.all(
@@ -176,10 +177,78 @@ class _OnboardingTeamsScreenState extends State<OnboardingTeamsScreen> {
                             ),
                             child: Row(
                               children: [
-                                Text(team['emoji']!, style: const TextStyle(fontSize: 22)),
-                                const SizedBox(width: 8),
+                                Image.network(
+                                  logoUrl,
+                                  width: 28,
+                                  height: 28,
+                                  fit: BoxFit.contain,
+                                  loadingBuilder: (context, child, loadingProgress) {
+                                    if (loadingProgress == null) return child;
+                                    return const SizedBox(
+                                      width: 28,
+                                      height: 28,
+                                      child: Center(
+                                        child: SizedBox(
+                                          width: 14,
+                                          height: 14,
+                                          child: CircularProgressIndicator(strokeWidth: 2),
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                  errorBuilder: (context, error, stackTrace) => const Icon(
+                                    Icons.sports_soccer,
+                                    size: 26,
+                                    color: Colors.white60,
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
                                 Expanded(
                                   child: Text(
                                     name,
-                                    style: const TextStyle(
-                                      fontSize
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                      color: isSelected ? AppColors.gold : Colors.white,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.gold,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  onPressed: _finish,
+                  child: Text(
+                    selected.isEmpty ? 'تخطي ومتابعة' : 'متابعة (${selected.length})',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
