@@ -59,7 +59,9 @@ class _AppStarterState extends State<AppStarter> {
 
   Future<void> _check() async {
     final done = await OnboardingService.instance.isDone();
-    setState(() => _done = done);
+    if (mounted) {
+      setState(() => _done = done);
+    }
   }
 
   @override
