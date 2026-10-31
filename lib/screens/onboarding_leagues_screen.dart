@@ -134,15 +134,4 @@ class _OnboardingLeaguesScreenState extends State<OnboardingLeaguesScreen> {
                     ),
                   ),
                   child: Text(
-                    selected.isEmpty ? 'تخطي' : 'التالي (${selected.length})',
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
+                    selected.isEmpty ? 'تخطي'
