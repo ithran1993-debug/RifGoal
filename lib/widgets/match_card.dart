@@ -1,35 +1,37 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
-import '../utils/app_constants.dart';
 import 'match_minute_circle.dart';
 
 class MatchCard extends StatelessWidget {
-  final Map<String, dynamic> match;
+  final dynamic match;
   final VoidCallback? onTap;
 
-  const MatchCard({super.key, required this.match, this.onTap});
+  const MatchCard({
+    super.key,
+    required this.match,
+    this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final status = match['status'] ?? '';
+    // استخراج البيانات سواء كان كائناً أو خريطة
+    final String status = _getValue('status') ?? '';
     final bool isLive = status == 'IN_PLAY' || status == 'LIVE';
     final bool isHalfTime = status == 'PAUSED';
     final bool isFinished = status == 'FINISHED';
 
-    final homeNameRaw = match['homeTeam']?['name'] ?? '';
-    final awayNameRaw = match['awayTeam']?['name'] ?? '';
-    final homeTeam = AppConstants.translateTeam(homeNameRaw);
-    final awayTeam = AppConstants.translateTeam(awayNameRaw);
+    final String homeTeam = _getTeamName('homeTeam') ?? 'فريق 1';
+    final String awayTeam = _getTeamName('awayTeam') ?? 'فريق 2';
+    final String homeCrest = _getTeamCrest('homeTeam') ?? '';
+    final String awayCrest = _getTeamCrest('awayTeam') ?? '';
 
-    final homeCrest = match['homeTeam']?['crest'] ?? '';
-    final awayCrest = match['awayTeam']?['crest'] ?? '';
+    final dynamic homeScore = _getScore('home');
+    final dynamic awayScore = _getScore('away');
 
-    final homeScore = match['score']?['fullTime']?['home'] ?? match['score']?['current']?['home'];
-    final awayScore = match['score']?['fullTime']?['away'] ?? match['score']?['current']?['away'];
-
-    final int currentMinute = match['minute'] ?? (isHalfTime ? 45 : 31);
-    final List<int> goalMinutes = (match['goalMinutes'] as List?)?.map((e) => e as int).toList() ??
-        ((homeScore != null && (homeScore + (awayScore ?? 0) > 0)) ? [currentMinute] : []);
+    final int currentMinute = _getIntValue('minute') ?? (isHalfTime ? 45 : 31);
+    final List<int> goalMinutes = isLive && homeScore != null && awayScore != null && ((homeScore as int? ?? 0) + (awayScore as int? ?? 0) > 0)
+        ? [currentMinute]
+        : [];
 
     return InkWell(
       onTap: onTap,
@@ -43,7 +45,6 @@ class MatchCard extends StatelessWidget {
         ),
         child: Row(
           children: [
-            // الفريق الأول
             Expanded(
               flex: 4,
               child: Row(
@@ -62,8 +63,6 @@ class MatchCard extends StatelessWidget {
                 ],
               ),
             ),
-
-            // منطقة المنتصف
             SizedBox(
               width: 105,
               child: (isLive || isHalfTime)
@@ -111,17 +110,13 @@ class MatchCard extends StatelessWidget {
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Text(
-                              match['utcDate'] != null
-                                  ? match['utcDate'].toString().substring(11, 16)
-                                  : (match['time'] ?? '15:00'),
+                              _getTimeString(),
                               style: const TextStyle(color: AppColors.gold, fontSize: 14, fontWeight: FontWeight.bold),
                             ),
                             const Text('VS', style: TextStyle(color: AppColors.muted, fontSize: 10)),
                           ],
                         ),
             ),
-
-            // الفريق الثاني
             Expanded(
               flex: 4,
               child: Row(
@@ -144,6 +139,61 @@ class MatchCard extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  dynamic _getValue(String key) {
+    if (match is Map) return match[key];
+    try {
+      if (key == 'status') return match.status;
+    } catch (_) {}
+    return null;
+  }
+
+  int? _getIntValue(String key) {
+    if (match is Map) return match[key] as int?;
+    try {
+      if (key == 'minute') return match.minute as int?;
+    } catch (_) {}
+    return null;
+  }
+
+  String? _getTeamName(String key) {
+    if (match is Map) return match[key]?['name'];
+    try {
+      if (key == 'homeTeam') return match.homeTeam?.name ?? match.homeTeamName;
+      if (key == 'awayTeam') return match.awayTeam?.name ?? match.awayTeamName;
+    } catch (_) {}
+    return null;
+  }
+
+  String? _getTeamCrest(String key) {
+    if (match is Map) return match[key]?['crest'];
+    try {
+      if (key == 'homeTeam') return match.homeTeam?.crest ?? match.homeTeamCrest;
+      if (key == 'awayTeam') return match.awayTeam?.crest ?? match.awayTeamCrest;
+    } catch (_) {}
+    return null;
+  }
+
+  dynamic _getScore(String side) {
+    if (match is Map) return match['score']?['fullTime']?[side] ?? match['score']?['current']?[side];
+    try {
+      if (side == 'home') return match.score?.fullTime?.home ?? match.homeScore;
+      if (side == 'away') return match.score?.fullTime?.away ?? match.awayScore;
+    } catch (_) {}
+    return null;
+  }
+
+  String _getTimeString() {
+    if (match is Map) {
+      if (match['utcDate'] != null) return match['utcDate'].toString().substring(11, 16);
+      return match['time'] ?? '15:00';
+    }
+    try {
+      if (match.utcDate != null) return match.utcDate.toString().substring(11, 16);
+      if (match.time != null) return match.time.toString();
+    } catch (_) {}
+    return '15:00';
   }
 
   Widget _buildCrest(String url) {
