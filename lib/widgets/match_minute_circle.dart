@@ -2,8 +2,8 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 class MatchMinuteCircle extends StatelessWidget {
-  final int minute;
-  final List<int> goalMinutes;
+  final int minute; // الدقيقة الحالية للمباراة (تحدد نهاية القوس الأصفر)
+  final List<int> goalMinutes; // قائمة دقائق كل الأهداف المسجلة (مثلاً: [12, 28, 75])
 
   const MatchMinuteCircle({
     super.key,
@@ -22,39 +22,43 @@ class MatchMinuteCircle extends StatelessWidget {
         alignment: Alignment.center,
         clipBehavior: Clip.none,
         children: [
-          // 1. الدائرة الخلفية مع خط التقدم الأصفر/الذهبي
+          // 1. الدائرة الأساسية + القوس الأصفر الذي يدور مع دقيقة المباراة الحالية
           CustomPaint(
             size: const Size(40, 40),
-            painter: _MinuteProgressPainter(minute: safeMinute),
+            painter: _MinuteProgressPainter(currentMinute: safeMinute),
           ),
 
-          // 2. كرات الأهداف الخضراء موزعة على محيط الدائرة حسب وقت كل هدف
-          ...goalMinutes.map((gMin) {
-            final double targetMin = gMin.clamp(1, 90).toDouble();
-            // الدقيقة 0 تبدأ من أعلى الدائرة (-pi / 2)، والـ 90 دقيقة تمثل 360 درجة كاملة (2 * pi)
-            final double angle = ((targetMin / 90.0) * 2 * math.pi) - (math.pi / 2);
-            const double radius = 20.0; // نصف القطر لتقع الكرة تماماً على الخط
-            final double dx = radius * math.cos(angle);
-            final double dy = radius * math.sin(angle);
+          // 2. كرات الأهداف: كل كرة تثبت في مكان الدقيقة التي سجل فيها الهدف
+          ...goalMinutes.map((goalMin) {
+            // حساب زاوية كل هدف: 90 دقيقة = دورة كاملة (2 * pi)، البداية من أعلى الدائرة (-pi / 2)
+            final double clampedGoal = goalMin.clamp(1, 90).toDouble();
+            final double goalAngle = ((clampedGoal / 90.0) * 2 * math.pi) - (math.pi / 2);
+            
+            const double radius = 20.0; // نصف القطر لتوضع الكرة مباشرة فوق خط الدائرة
+            final double dx = radius * math.cos(goalAngle);
+            final double dy = radius * math.sin(goalAngle);
 
             return Transform.translate(
               offset: Offset(dx, dy),
               child: Container(
-                padding: const EdgeInsets.all(1),
+                width: 13,
+                height: 13,
                 decoration: const BoxDecoration(
-                  color: Color(0xFF1E222D), // خلفية متناسقة مع الكارت لعزل الكرة
+                  color: Color(0xFF1E222D), // عازل خلفي بلون بطاقة المباراة
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(
-                  Icons.sports_soccer,
-                  size: 11,
-                  color: Color(0xFF00E676), // أخضر ساطع مميز للأهداف
+                child: const Center(
+                  child: Icon(
+                    Icons.sports_soccer,
+                    size: 11,
+                    color: Color(0xFF00E676), // الكرة باللون الأخضر الساطع
+                  ),
                 ),
               ),
             );
           }),
 
-          // 3. رقم الدقيقة الحالية في المنتصف
+          // 3. عرض رقم الدقيقة الحالية للمباراة في المنتصف
           Text(
             "'$minute",
             style: const TextStyle(
@@ -69,43 +73,44 @@ class MatchMinuteCircle extends StatelessWidget {
   }
 }
 
-// كلاس مخصص لرسم مسار الدائرة الرمادي ومسار الدقائق الأصفر
 class _MinuteProgressPainter extends CustomPainter {
-  final double minute;
+  final double currentMinute;
 
-  _MinuteProgressPainter({required this.minute});
+  _MinuteProgressPainter({required this.currentMinute});
 
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
     final radius = size.width / 2;
 
-    // رسم الدائرة الرمادية الأساسية
-    final backgroundPaint = Paint()
+    // مسار الدائرة الرمادي (المتبقي من الـ 90 دقيقة)
+    final bgPaint = Paint()
       ..color = Colors.grey.shade800
       ..strokeWidth = 2.0
       ..style = PaintingStyle.stroke;
-    canvas.drawCircle(center, radius, backgroundPaint);
+    canvas.drawCircle(center, radius, bgPaint);
 
-    // رسم مسار الدقائق باللون الأصفر
-    final progressPaint = Paint()
-      ..color = const Color(0xFFFFC107) // أصفر ذهبي
-      ..strokeWidth = 2.5
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
+    // مسار اللون الأصفر الذي يدور بحسب توقيت المباراة الفعلي
+    if (currentMinute > 0) {
+      final progressPaint = Paint()
+        ..color = const Color(0xFFFFC107) // أصفر ذهبي واضح
+        ..strokeWidth = 2.5
+        ..style = PaintingStyle.stroke
+        ..strokeCap = StrokeCap.round;
 
-    final double sweepAngle = (minute / 90.0) * 2 * math.pi;
-    canvas.drawArc(
-      Rect.fromCircle(center: center, radius: radius),
-      -math.pi / 2, // البداية من أعلى الدائرة
-      sweepAngle,
-      false,
-      progressPaint,
-    );
+      final double sweepAngle = (currentMinute / 90.0) * 2 * math.pi;
+      canvas.drawArc(
+        Rect.fromCircle(center: center, radius: radius),
+        -math.pi / 2, // البداية من أعلى الدائرة (الدقيقة 0)
+        sweepAngle,
+        false,
+        progressPaint,
+      );
+    }
   }
 
   @override
   bool shouldRepaint(covariant _MinuteProgressPainter oldDelegate) {
-    return oldDelegate.minute != minute;
+    return oldDelegate.currentMinute != currentMinute;
   }
 }
