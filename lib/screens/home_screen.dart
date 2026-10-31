@@ -18,7 +18,6 @@ class _HomeScreenState extends State<HomeScreen> {
   late DateTime selectedDate;
   late Future<List<Match>> _matchesFuture;
 
-  // مطابقة المعرفات الرقمية مع API-Sports
   final Map<String, String> leagues = {
     'all': 'الكل',
     '2': 'أبطال أوروبا',
@@ -82,7 +81,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Column(
       children: [
-        // 1. شريط اختيار الأيام
         Container(
           height: 52,
           padding: const EdgeInsets.symmetric(vertical: 6),
@@ -138,8 +136,6 @@ class _HomeScreenState extends State<HomeScreen> {
             },
           ),
         ),
-
-        // 2. فلتر الدوريات
         Container(
           height: 48,
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
@@ -174,8 +170,6 @@ class _HomeScreenState extends State<HomeScreen> {
             }).toList(),
           ),
         ),
-
-        // 3. عرض المباريات لليوم المحدد
         Expanded(
           child: FutureBuilder<List<Match>>(
             future: _matchesFuture,
@@ -211,7 +205,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
               var matches = snapshot.data!;
 
-              // تصفية حسب الدوري إذا تم اختيار دوري محدد
               if (selectedLeague != 'all') {
                 matches = matches.where((m) => m.league == selectedLeague).toList();
               }
@@ -225,7 +218,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 );
               }
 
-              // تجميع مباريات اليوم حسب اسم البطولة المعرب
               final Map<String, List<Match>> byLeague = {};
               for (var m in matches) {
                 final String translatedLeague = AppConstants.translateLeague(m.leagueName);
