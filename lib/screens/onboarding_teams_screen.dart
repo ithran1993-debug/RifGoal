@@ -18,47 +18,47 @@ class _OnboardingTeamsScreenState extends State<OnboardingTeamsScreen> {
   final Map<String, dynamic> teamsByLeague = const {
     // دوري أبطال أوروبا
     '2': [
-      {'name': 'ريال مدريد', 'logo': 'https://crests.football-data.org/86.png'},
-      {'name': 'برشلونة', 'logo': 'https://crests.football-data.org/81.png'},
-      {'name': 'مانشستر سيتي', 'logo': 'https://crests.football-data.org/65.png'},
-      {'name': 'بايرن ميونخ', 'logo': 'https://crests.football-data.org/5.png'},
-      {'name': 'باريس سان جيرمان', 'logo': 'https://crests.football-data.org/524.png'},
-      {'name': 'ليفربول', 'logo': 'https://crests.football-data.org/64.png'},
+      {'name': 'ريال مدريد', 'logo': 'https://media.api-sports.io/football/teams/541.png'},
+      {'name': 'برشلونة', 'logo': 'https://media.api-sports.io/football/teams/529.png'},
+      {'name': 'مانشستر سيتي', 'logo': 'https://media.api-sports.io/football/teams/50.png'},
+      {'name': 'بايرن ميونخ', 'logo': 'https://media.api-sports.io/football/teams/157.png'},
+      {'name': 'باريس سان جيرمان', 'logo': 'https://media.api-sports.io/football/teams/85.png'},
+      {'name': 'ليفربول', 'logo': 'https://media.api-sports.io/football/teams/40.png'},
     ],
     // الدوري الإنجليزي
     '39': [
-      {'name': 'مانشستر سيتي', 'logo': 'https://crests.football-data.org/65.png'},
-      {'name': 'آرسنال', 'logo': 'https://crests.football-data.org/57.png'},
-      {'name': 'ليفربول', 'logo': 'https://crests.football-data.org/64.png'},
-      {'name': 'تشيلسي', 'logo': 'https://crests.football-data.org/61.png'},
-      {'name': 'مانشستر يونايتد', 'logo': 'https://crests.football-data.org/66.png'},
-      {'name': 'توتنهام', 'logo': 'https://crests.football-data.org/73.png'},
+      {'name': 'مانشستر سيتي', 'logo': 'https://media.api-sports.io/football/teams/50.png'},
+      {'name': 'آرسنال', 'logo': 'https://media.api-sports.io/football/teams/42.png'},
+      {'name': 'ليفربول', 'logo': 'https://media.api-sports.io/football/teams/40.png'},
+      {'name': 'تشيلسي', 'logo': 'https://media.api-sports.io/football/teams/49.png'},
+      {'name': 'مانشستر يونايتد', 'logo': 'https://media.api-sports.io/football/teams/33.png'},
+      {'name': 'توتنهام', 'logo': 'https://media.api-sports.io/football/teams/47.png'},
     ],
     // الدوري الإسباني
     '140': [
-      {'name': 'ريال مدريد', 'logo': 'https://crests.football-data.org/86.png'},
-      {'name': 'برشلونة', 'logo': 'https://crests.football-data.org/81.png'},
-      {'name': 'أتلتيكو مدريد', 'logo': 'https://crests.football-data.org/78.png'},
-      {'name': 'إشبيلية', 'logo': 'https://crests.football-data.org/559.png'},
+      {'name': 'ريال مدريد', 'logo': 'https://media.api-sports.io/football/teams/541.png'},
+      {'name': 'برشلونة', 'logo': 'https://media.api-sports.io/football/teams/529.png'},
+      {'name': 'أتلتيكو مدريد', 'logo': 'https://media.api-sports.io/football/teams/530.png'},
+      {'name': 'إشبيلية', 'logo': 'https://media.api-sports.io/football/teams/536.png'},
     ],
     // الدوري الإيطالي
     '135': [
-      {'name': 'يوفنتوس', 'logo': 'https://crests.football-data.org/109.png'},
-      {'name': 'ميلان', 'logo': 'https://crests.football-data.org/98.png'},
-      {'name': 'إنتر', 'logo': 'https://crests.football-data.org/108.png'},
-      {'name': 'نابولي', 'logo': 'https://crests.football-data.org/113.png'},
+      {'name': 'يوفنتوس', 'logo': 'https://media.api-sports.io/football/teams/496.png'},
+      {'name': 'ميلان', 'logo': 'https://media.api-sports.io/football/teams/489.png'},
+      {'name': 'إنتر', 'logo': 'https://media.api-sports.io/football/teams/505.png'},
+      {'name': 'نابولي', 'logo': 'https://media.api-sports.io/football/teams/492.png'},
     ],
     // الدوري الألماني
     '78': [
-      {'name': 'بايرن ميونخ', 'logo': 'https://crests.football-data.org/5.png'},
-      {'name': 'دورتموند', 'logo': 'https://crests.football-data.org/4.png'},
-      {'name': 'لايبزيغ', 'logo': 'https://crests.football-data.org/721.png'},
+      {'name': 'بايرن ميونخ', 'logo': 'https://media.api-sports.io/football/teams/157.png'},
+      {'name': 'دورتموند', 'logo': 'https://media.api-sports.io/football/teams/165.png'},
+      {'name': 'لايبزيغ', 'logo': 'https://media.api-sports.io/football/teams/173.png'},
     ],
     // الدوري الفرنسي
     '61': [
-      {'name': 'باريس سان جيرمان', 'logo': 'https://crests.football-data.org/524.png'},
-      {'name': 'مارسيليا', 'logo': 'https://crests.football-data.org/516.png'},
-      {'name': 'ليون', 'logo': 'https://crests.football-data.org/523.png'},
+      {'name': 'باريس سان جيرمان', 'logo': 'https://media.api-sports.io/football/teams/85.png'},
+      {'name': 'مارسيليا', 'logo': 'https://media.api-sports.io/football/teams/81.png'},
+      {'name': 'ليون', 'logo': 'https://media.api-sports.io/football/teams/80.png'},
     ],
     // البطولة المغربية
     '200': [
@@ -71,9 +71,9 @@ class _OnboardingTeamsScreenState extends State<OnboardingTeamsScreen> {
     ],
     // الدوري الأوروبي
     '3': [
-      {'name': 'إشبيلية', 'logo': 'https://crests.football-data.org/559.png'},
-      {'name': 'روما', 'logo': 'https://crests.football-data.org/100.png'},
-      {'name': 'آرسنال', 'logo': 'https://crests.football-data.org/57.png'},
+      {'name': 'إشبيلية', 'logo': 'https://media.api-sports.io/football/teams/536.png'},
+      {'name': 'روما', 'logo': 'https://media.api-sports.io/football/teams/497.png'},
+      {'name': 'آرسنال', 'logo': 'https://media.api-sports.io/football/teams/42.png'},
     ],
   };
 
@@ -177,4 +177,93 @@ class _OnboardingTeamsScreenState extends State<OnboardingTeamsScreen> {
                               color: isSelected
                                   ? AppColors.gold.withValues(alpha: 0.15)
                                   : AppColors.card,
-                              borderRadius: BorderRadius.circular(1
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: isSelected ? AppColors.gold : AppColors.border,
+                                width: isSelected ? 1.5 : 1,
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                if (logoUrl.isNotEmpty)
+                                  Image.network(
+                                    logoUrl,
+                                    width: 28,
+                                    height: 28,
+                                    fit: BoxFit.contain,
+                                    loadingBuilder: (context, child, loadingProgress) {
+                                      if (loadingProgress == null) return child;
+                                      return const SizedBox(
+                                        width: 28,
+                                        height: 28,
+                                        child: Center(
+                                          child: SizedBox(
+                                            width: 14,
+                                            height: 14,
+                                            child: CircularProgressIndicator(strokeWidth: 2),
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                    errorBuilder: (context, error, stackTrace) => const Icon(
+                                      Icons.sports_soccer,
+                                      size: 26,
+                                      color: Colors.white60,
+                                    ),
+                                  )
+                                else
+                                  const Icon(
+                                    Icons.sports_soccer,
+                                    size: 26,
+                                    color: Colors.white60,
+                                  ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    name,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                      color: isSelected ? AppColors.gold : Colors.white,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.gold,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  onPressed: _finish,
+                  child: Text(
+                    selected.isEmpty ? 'تخطي ومتابعة' : 'متابعة (${selected.length})',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
