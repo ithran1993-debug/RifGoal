@@ -1,8 +1,12 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:http/http.dart' as http;
 import '../models/match_model.dart';
 import '../services/favorites_service.dart';
+import '../services/match_service.dart';
 import '../theme/app_theme.dart';
+import '../widgets/match_minute_circle.dart';
 
 class MatchDetailsScreen extends StatefulWidget {
   final Match match;
@@ -15,26 +19,35 @@ class MatchDetailsScreen extends StatefulWidget {
 
 class _MatchDetailsScreenState extends State<MatchDetailsScreen> {
   bool isFav = false;
+  List<dynamic> _events = [];
+  List<int> _goalMinutes = [];
+  bool _loadingEvents = true;
+
+  static const String _apiKey = '60380bdc41e945a2c17619bdcc6944bf';
+  static const String _baseUrl = 'https://v3.football.api-sports.io';
 
   @override
   void initState() {
     super.initState();
     _checkFavorite();
+    _fetchMatchEvents();
   }
 
   Future<void> _checkFavorite() async {
     await FavoritesService.instance.load();
-    setState(() {
-      isFav = FavoritesService.instance.isFavorite(widget.match.id);
-    });
+    if (mounted) {
+      setState(() {
+        isFav = FavoritesService.instance.isFavorite(widget.match.id);
+      });
+    }
   }
 
   Future<void> _toggleFavorite() async {
     await FavoritesService.instance.toggle(widget.match);
+    if (!mounted) return;
     setState(() {
       isFav = FavoritesService.instance.isFavorite(widget.match.id);
     });
-    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(isFav ? 'تمت الإضافة للمفضلة' : 'تمت الإزالة من المفضلة'),
@@ -44,9 +57,48 @@ class _MatchDetailsScreenState extends State<MatchDetailsScreen> {
     );
   }
 
+  Future<void> _fetchMatchEvents() async {
+    try {
+      final res = await http.get(
+        Uri.parse('$_baseUrl/fixtures/events?fixture=${widget.match.id}'),
+        headers: {'x-apisports-key': _apiKey},
+      ).timeout(const Duration(seconds: 10));
+
+      if (res.statusCode == 200) {
+        final data = json.decode(res.body);
+        final list = data['response'] as List? ?? [];
+        final List<int> goals = [];
+
+        for (var ev in list) {
+          if (ev['type'] == 'Goal') {
+            final m = int.tryParse(ev['time']?['elapsed']?.toString() ?? '');
+            if (m != null) goals.add(m);
+          }
+        }
+
+        if (mounted) {
+          setState(() {
+            _events = list;
+            _goalMinutes = goals;
+            _loadingEvents = false;
+          });
+        }
+        return;
+      }
+    } catch (_) {}
+
+    if (mounted) {
+      setState(() {
+        _loadingEvents = false;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final match = widget.match;
+    final bool isLive = match.statusClass == 'live';
+    final int currentMinute = int.tryParse(match.minute?.replaceAll("'", "") ?? '1') ?? 1;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -73,36 +125,92 @@ class _MatchDetailsScreenState extends State<MatchDetailsScreen> {
       body: SingleChildScrollView(
         child: Column(
           children: [
+            // بطاقة النتيجة والفريقين
             Container(
-              padding: const EdgeInsets.symmetric(vertical: 30, horizontal: 20),
+              padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+              margin: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.card,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppColors.border),
+              ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
-                  _teamColumn(match.home),
+                  Expanded(child: _teamColumn(match.home)),
                   Column(
                     children: [
                       Text(
                         match.score,
-                        style: const TextStyle(fontSize: 36, fontWeight: FontWeight.w800),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        match.statusClass == 'live'
-                            ? "${match.minute ?? ''} جارية"
-                            : match.status,
-                        style: TextStyle(
-                          color: (match.statusClass == 'live' || match.statusClass == 'half')
-                              ? AppColors.live
-                              : AppColors.muted,
-                          fontWeight: FontWeight.bold,
+                        style: const TextStyle(
+                          fontSize: 32,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
                         ),
                       ),
+                      const SizedBox(height: 10),
+                      if (isLive)
+                        MatchMinuteCircle(
+                          minute: currentMinute,
+                          goalMinutes: _goalMinutes,
+                        )
+                      else
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: AppColors.background,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            match.status,
+                            style: const TextStyle(
+                              color: AppColors.gold,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
                     ],
                   ),
-                  _teamColumn(match.away),
+                  Expanded(child: _teamColumn(match.away)),
                 ],
               ),
             ),
+
+            // قائمة أحداث اللقاء (أهداف، إنذارات، تبديلات)
+            if (_events.isNotEmpty)
+              Container(
+                margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: AppColors.card,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: AppColors.border),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Row(
+                      children: [
+                        Icon(Icons.timeline, color: AppColors.gold, size: 20),
+                        SizedBox(width: 8),
+                        Text(
+                          'أحداث المباراة',
+                          style: TextStyle(
+                            color: AppColors.gold,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const Divider(color: Color(0xFF21262D), height: 20),
+                    ..._events.map((ev) => _buildEventItem(ev)),
+                  ],
+                ),
+              ),
+
+            // تفاصيل الملعب والحكم والجولة
             Container(
               margin: const EdgeInsets.all(12),
               decoration: BoxDecoration(
@@ -124,12 +232,62 @@ class _MatchDetailsScreenState extends State<MatchDetailsScreen> {
     );
   }
 
+  Widget _buildEventItem(dynamic ev) {
+    final type = (ev['type'] ?? '').toString();
+    final minute = ev['time']?['elapsed']?.toString() ?? '';
+    final player = ev['player']?['name'] ?? '';
+    final detail = ev['detail'] ?? '';
+
+    IconData iconData = Icons.sports_soccer;
+    Color iconColor = Colors.white;
+
+    if (type == 'Goal') {
+      iconData = Icons.sports_soccer;
+      iconColor = const Color(0xFF00E676);
+    } else if (type == 'Card') {
+      iconData = Icons.style;
+      iconColor = detail.toString().contains('Yellow') ? Colors.amber : Colors.redAccent;
+    } else if (type == 'subst') {
+      iconData = Icons.swap_horiz;
+      iconColor = Colors.lightBlueAccent;
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: AppColors.background,
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Text(
+              "'$minute",
+              style: const TextStyle(color: AppColors.gold, fontSize: 12, fontWeight: FontWeight.bold),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Icon(iconData, size: 16, color: iconColor),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              player.isNotEmpty ? '$player ($detail)' : detail.toString(),
+              style: const TextStyle(color: Colors.white, fontSize: 13),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _teamColumn(Team team) {
     return Column(
       children: [
         Container(
-          width: 70,
-          height: 70,
+          width: 64,
+          height: 64,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             color: const Color(0xFF21262D),
@@ -149,26 +307,13 @@ class _MatchDetailsScreenState extends State<MatchDetailsScreen> {
         const SizedBox(height: 10),
         Text(
           team.name,
-          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
           textAlign: TextAlign.center,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
         ),
       ],
     );
   }
 
-  Widget _infoRow(String label, String value, {bool isLast = false}) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      decoration: BoxDecoration(
-        border: isLast ? null : const Border(bottom: BorderSide(color: Color(0xFF21262D))),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label, style: const TextStyle(color: AppColors.muted)),
-          Text(value, style: const TextStyle(fontWeight: FontWeight.w600)),
-        ],
-      ),
-    );
-  }
-}
+  Widget _infoRow(String label, String value, {bool
