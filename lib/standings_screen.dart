@@ -102,39 +102,92 @@ class _StandingsScreenState extends State<StandingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final primary = Theme.of(context).colorScheme.primary;
+
     return Column(
       children: [
-        const SizedBox(height: 12),
+        const SizedBox(height: 14),
 
+        // اختيار البطولة
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 14),
-          child: DropdownButtonFormField<String>(
-            value: selectedLeague,
-            isExpanded: true,
-            decoration: InputDecoration(
-              labelText: 'اختر البطولة',
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
+          child: Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 14,
+              vertical: 3,
+            ),
+            decoration: BoxDecoration(
+              color: Theme.of(context).cardColor,
+              borderRadius: BorderRadius.circular(15),
+              border: Border.all(
+                color: Theme.of(context)
+                    .dividerColor
+                    .withOpacity(0.25),
               ),
             ),
-            items: leagues.map((league) {
-              return DropdownMenuItem<String>(
-                value: league,
-                child: Text(league),
-              );
-            }).toList(),
-            onChanged: (value) {
-              if (value != null) {
-                setState(() {
-                  selectedLeague = value;
-                });
-                _loadStandings();
-              }
-            },
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<String>(
+                value: selectedLeague,
+                isExpanded: true,
+                icon: Icon(
+                  Icons.keyboard_arrow_down_rounded,
+                  color: primary,
+                ),
+                items: leagues.map((league) {
+                  return DropdownMenuItem<String>(
+                    value: league,
+                    child: Text(
+                      league,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                    ),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  if (value != null) {
+                    setState(() {
+                      selectedLeague = value;
+                    });
+                    _loadStandings();
+                  }
+                },
+              ),
+            ),
           ),
         ),
 
-        const SizedBox(height: 16),
+        const SizedBox(height: 14),
+
+        // عنوان الجدول
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            children: [
+              Icon(
+                Icons.leaderboard_rounded,
+                color: primary,
+                size: 21,
+              ),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text(
+                  'جدول الترتيب',
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              IconButton(
+                onPressed: _loadStandings,
+                tooltip: 'تحديث',
+                icon: const Icon(Icons.refresh_rounded),
+              ),
+            ],
+          ),
+        ),
 
         Expanded(
           child: _buildContent(),
@@ -152,7 +205,7 @@ class _StandingsScreenState extends State<StandingsScreen> {
 
     if (errorMessage != null) {
       return _message(
-        Icons.wifi_off,
+        Icons.wifi_off_rounded,
         'تعذر تحميل الترتيب',
         errorMessage!,
         true,
@@ -172,16 +225,12 @@ class _StandingsScreenState extends State<StandingsScreen> {
       onRefresh: _loadStandings,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(10, 4, 10, 20),
+        padding: const EdgeInsets.fromLTRB(12, 4, 12, 25),
         children: [
-          _buildHeader(),
-
-          const SizedBox(height: 8),
-
-          ...standings.map(_buildStandingRow),
-
+          _buildTable(),
+          const SizedBox(height: 18),
+          _buildLegend(),
           const SizedBox(height: 12),
-
           const Center(
             child: Text(
               'اسحب للأسفل لتحديث الترتيب',
@@ -193,123 +242,134 @@ class _StandingsScreenState extends State<StandingsScreen> {
     );
   }
 
-  Widget _buildHeader() {
+  Widget _buildTable() {
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 8,
-        vertical: 12,
-      ),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.primary,
-        borderRadius: BorderRadius.circular(10),
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: Theme.of(context).dividerColor.withOpacity(0.2),
+        ),
       ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: SizedBox(
+            width: 610,
+            child: Column(
+              children: [
+                _buildHeader(),
+                ...standings.map(_buildStandingRow),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeader() {
+    final primary = Theme.of(context).colorScheme.primary;
+
+    return Container(
+      height: 48,
+      color: primary,
+      padding: const EdgeInsets.symmetric(horizontal: 8),
       child: const Row(
         children: [
-          SizedBox(
-            width: 28,
-            child: Text(
-              '#',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 11,
-              ),
-            ),
-          ),
-          Expanded(
-            flex: 5,
-            child: Text(
-              'الفريق',
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 11,
-              ),
-            ),
-          ),
-          _HeaderCell('لعب'),
-          _HeaderCell('ف'),
-          _HeaderCell('ت'),
-          _HeaderCell('خ'),
-          _HeaderCell('له'),
-          _HeaderCell('عليه'),
-          _HeaderCell('النقاط'),
+          _HeaderCell('#', width: 35),
+          _HeaderCell('الفريق', width: 175, alignStart: true),
+          _HeaderCell('لعب', width: 45),
+          _HeaderCell('فاز', width: 45),
+          _HeaderCell('تعادل', width: 45),
+          _HeaderCell('خسر', width: 45),
+          _HeaderCell('له', width: 45),
+          _HeaderCell('عليه', width: 45),
+          _HeaderCell('النقاط', width: 65),
         ],
       ),
     );
   }
 
   Widget _buildStandingRow(Standing item) {
-    final isDark =
-        Theme.of(context).brightness == Brightness.dark;
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
 
-    final background = isDark
-        ? const Color(0xFF161B22)
-        : Colors.white;
-
-    final textColor = Theme.of(context).colorScheme.onSurface;
+    final Color? positionColor = item.position <= 4
+        ? Colors.green.withOpacity(0.10)
+        : null;
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 5),
-      padding: const EdgeInsets.symmetric(
-        horizontal: 8,
-        vertical: 12,
-      ),
+      height: 58,
+      padding: const EdgeInsets.symmetric(horizontal: 8),
       decoration: BoxDecoration(
-        color: background,
-        borderRadius: BorderRadius.circular(9),
-        border: Border.all(
-          color: Theme.of(context).dividerColor.withOpacity(0.3),
+        color: positionColor ??
+            (isDark
+                ? const Color(0xFF161B22)
+                : Colors.white),
+        border: Border(
+          bottom: BorderSide(
+            color: theme.dividerColor.withOpacity(0.18),
+          ),
         ),
       ),
       child: Row(
         children: [
           SizedBox(
-            width: 28,
-            child: Text(
-              '${item.position}',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: item.position <= 4
-                    ? Theme.of(context).colorScheme.primary
-                    : textColor,
+            width: 35,
+            child: Center(
+              child: Container(
+                width: 25,
+                height: 25,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: item.position <= 4
+                      ? Colors.green.withOpacity(0.15)
+                      : theme.dividerColor.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  '${item.position}',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                    color: item.position <= 4
+                        ? Colors.green
+                        : theme.colorScheme.onSurface,
+                  ),
+                ),
               ),
             ),
           ),
 
-          Expanded(
-            flex: 5,
+          SizedBox(
+            width: 175,
             child: Row(
               children: [
                 SizedBox(
-                  width: 25,
-                  height: 25,
+                  width: 28,
+                  height: 28,
                   child: item.teamLogo.isEmpty
-                      ? const Icon(
-                          Icons.shield_outlined,
-                          size: 22,
-                        )
+                      ? const Icon(Icons.shield_outlined)
                       : Image.network(
                           item.teamLogo,
                           fit: BoxFit.contain,
                           errorBuilder: (_, __, ___) {
                             return const Icon(
                               Icons.shield_outlined,
-                              size: 22,
                             );
                           },
                         ),
                 ),
-                const SizedBox(width: 6),
+                const SizedBox(width: 9),
                 Expanded(
                   child: Text(
                     item.teamName,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                      fontSize: 11,
+                      fontSize: 12,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -318,27 +378,55 @@ class _StandingsScreenState extends State<StandingsScreen> {
             ),
           ),
 
-          _DataCell('${item.played}'),
-          _DataCell('${item.won}'),
-          _DataCell('${item.drawn}'),
-          _DataCell('${item.lost}'),
-          _DataCell('${item.goalsFor}'),
-          _DataCell('${item.goalsAgainst}'),
+          _DataCell('${item.played}', width: 45),
+          _DataCell('${item.won}', width: 45),
+          _DataCell('${item.drawn}', width: 45),
+          _DataCell('${item.lost}', width: 45),
+          _DataCell('${item.goalsFor}', width: 45),
+          _DataCell('${item.goalsAgainst}', width: 45),
 
           SizedBox(
-            width: 35,
-            child: Text(
-              '${item.points}',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-                color: Theme.of(context).colorScheme.primary,
+            width: 65,
+            child: Center(
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.primary.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(9),
+                ),
+                child: Text(
+                  '${item.points}',
+                  style: TextStyle(
+                    color: theme.colorScheme.primary,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 13,
+                  ),
+                ),
               ),
             ),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildLegend() {
+    return Wrap(
+      spacing: 16,
+      runSpacing: 10,
+      children: [
+        _LegendItem(
+          color: Colors.green,
+          text: 'المراكز الأربعة الأولى',
+        ),
+        _LegendItem(
+          color: Colors.grey,
+          text: 'بقية المراكز',
+        ),
+      ],
     );
   }
 
@@ -390,20 +478,28 @@ class _StandingsScreenState extends State<StandingsScreen> {
 
 class _HeaderCell extends StatelessWidget {
   final String text;
+  final double width;
+  final bool alignStart;
 
-  const _HeaderCell(this.text);
+  const _HeaderCell(
+    this.text, {
+    required this.width,
+    this.alignStart = false,
+  });
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 27,
+      width: width,
       child: Text(
         text,
-        textAlign: TextAlign.center,
+        textAlign: alignStart
+            ? TextAlign.start
+            : TextAlign.center,
         style: const TextStyle(
           color: Colors.white,
           fontWeight: FontWeight.bold,
-          fontSize: 9,
+          fontSize: 11,
         ),
       ),
     );
@@ -412,18 +508,57 @@ class _HeaderCell extends StatelessWidget {
 
 class _DataCell extends StatelessWidget {
   final String text;
+  final double width;
 
-  const _DataCell(this.text);
+  const _DataCell(
+    this.text, {
+    required this.width,
+  });
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 27,
+      width: width,
       child: Text(
         text,
         textAlign: TextAlign.center,
-        style: const TextStyle(fontSize: 10),
+        style: const TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w500,
+        ),
       ),
+    );
+  }
+}
+
+class _LegendItem extends StatelessWidget {
+  final Color color;
+  final String text;
+
+  const _LegendItem({
+    required this.color,
+    required this.text,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 9,
+          height: 9,
+          decoration: BoxDecoration(
+            color: color,
+            shape: BoxShape.circle,
+          ),
+        ),
+        const SizedBox(width: 6),
+        Text(
+          text,
+          style: const TextStyle(fontSize: 11),
+        ),
+      ],
     );
   }
 }
