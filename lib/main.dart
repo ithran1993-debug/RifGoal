@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'app_constants.dart';
 import 'theme/app_theme.dart';
+import 'theme/theme_controller.dart';
 import 'matches_screen.dart';
 import 'leagues_screen.dart';
 import 'standings_screen.dart';
@@ -9,8 +10,11 @@ import 'news_screen.dart';
 import 'favorites_screen.dart';
 import 'settings_screen.dart';
 
-void main() {
+final ThemeController themeController = ThemeController();
+
+Future<void> main() async {
 WidgetsFlutterBinding.ensureInitialized();
+await themeController.loadTheme();
 runApp(const RifGoalApp());
 }
 
@@ -19,12 +23,15 @@ const RifGoalApp({super.key});
 
 @override
 Widget build(BuildContext context) {
+return AnimatedBuilder(
+animation: themeController,
+builder: (context, child) {
 return MaterialApp(
 debugShowCheckedModeBanner: false,
 title: AppConstants.appName,
 theme: AppTheme.lightTheme,
 darkTheme: AppTheme.darkTheme,
-themeMode: ThemeMode.system,
+themeMode: themeController.themeMode,
 locale: const Locale('ar'),
 builder: (context, child) {
 return Directionality(
@@ -33,6 +40,8 @@ child: child!,
 );
 },
 home: const HomeScreen(),
+);
+},
 );
 }
 }
