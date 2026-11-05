@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 
+import 'app_constants.dart';
+import 'theme/app_theme.dart';
+
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
   runApp(const RifGoalApp());
 }
 
@@ -11,45 +15,103 @@ class RifGoalApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'Rif Goal',
-      theme: ThemeData(
-        useMaterial3: true,
-        fontFamily: 'Cairo',
-        brightness: Brightness.light,
-        scaffoldBackgroundColor: const Color(0xFFF0F2F5),
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF1565C0),
-        ),
-      ),
-      darkTheme: ThemeData(
-        useMaterial3: true,
-        brightness: Brightness.dark,
-        scaffoldBackgroundColor: const Color(0xFF0F1115),
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF42A5F5),
-          brightness: Brightness.dark,
-        ),
-      ),
+      title: AppConstants.appName,
+      theme: AppTheme.lightTheme,
+      darkTheme: AppTheme.darkTheme,
       themeMode: ThemeMode.system,
+      locale: const Locale('ar'),
+      builder: (context, child) {
+        return Directionality(
+          textDirection: TextDirection.rtl,
+          child: child!,
+        );
+      },
       home: const HomeScreen(),
     );
   }
 }
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
   @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  int selectedIndex = 0;
+
+  final List<String> titles = [
+    'الرئيسية',
+    'المباريات',
+    'البطولات',
+    'الترتيب',
+    'الأخبار',
+    'المفضلة',
+  ];
+
+  @override
   Widget build(BuildContext context) {
-    return const Scaffold(
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text(
+          'RIF GOAL',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 21,
+          ),
+        ),
+        actions: [
+          IconButton(
+            onPressed: () {},
+            icon: const Icon(Icons.notifications_none),
+          ),
+          const SizedBox(width: 8),
+        ],
+      ),
       body: Center(
         child: Text(
-          'Rif Goal',
-          style: TextStyle(
-            fontSize: 28,
+          titles[selectedIndex],
+          style: const TextStyle(
+            fontSize: 24,
             fontWeight: FontWeight.bold,
           ),
         ),
+      ),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: selectedIndex,
+        onDestinationSelected: (index) {
+          setState(() {
+            selectedIndex = index;
+          });
+        },
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.home_outlined),
+            selectedIcon: Icon(Icons.home),
+            label: 'الرئيسية',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.sports_soccer_outlined),
+            label: 'المباريات',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.emoji_events_outlined),
+            label: 'البطولات',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.leaderboard_outlined),
+            label: 'الترتيب',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.newspaper_outlined),
+            label: 'الأخبار',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.star_outline),
+            label: 'المفضلة',
+          ),
+        ],
       ),
     );
   }
