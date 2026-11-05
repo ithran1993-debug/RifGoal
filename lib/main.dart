@@ -92,7 +92,9 @@ onPressed: () {
 Navigator.push(
 context,
 MaterialPageRoute(
-builder: (context) => const SettingsScreen(),
+builder: (context) => SettingsScreen(
+  controller: themeController,
+),
 ),
 );
 },
