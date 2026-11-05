@@ -5,6 +5,8 @@ import 'competition_selector.dart';
 import 'match_service.dart';
 import 'match_model.dart';
 import 'api_config.dart';
+import 'favorites_service.dart';
+import 'match_details_screen.dart';
 
 class MatchesScreen extends StatefulWidget {
   const MatchesScreen({super.key});
@@ -15,11 +17,13 @@ class MatchesScreen extends StatefulWidget {
 
 class _MatchesScreenState extends State<MatchesScreen> {
   final MatchService _matchService = MatchService();
+  final FavoritesService _favoritesService = FavoritesService();
 
   DateTime selectedDate = DateTime.now();
   String selectedCompetition = 'ALL';
 
   List<FootballMatch> matches = [];
+  Set<String> favoriteTeamIds = {};
 
   bool isLoading = true;
   String? errorMessage;
@@ -37,7 +41,60 @@ class _MatchesScreenState extends State<MatchesScreen> {
   @override
   void initState() {
     super.initState();
+    _loadFavoriteTeams();
     _loadMatches();
+  }
+
+  Future<void> _loadFavoriteTeams() async {
+    final ids = await _favoritesService.getFavoriteTeams();
+
+    if (!mounted) return;
+
+    setState(() {
+      favoriteTeamIds = ids.toSet();
+    });
+  }
+
+  Future<void> _toggleFavoriteTeam({
+    required int? teamId,
+    required String name,
+    required String logo,
+  }) async {
+    if (teamId == null) return;
+
+    final id = teamId.toString();
+    final alreadyFavorite = favoriteTeamIds.contains(id);
+
+    if (alreadyFavorite) {
+      await _favoritesService.removeTeam(id);
+    } else {
+      await _favoritesService.saveTeam(
+        id: id,
+        name: name,
+        logo: logo,
+      );
+    }
+
+    if (!mounted) return;
+
+    setState(() {
+      if (alreadyFavorite) {
+        favoriteTeamIds.remove(id);
+      } else {
+        favoriteTeamIds.add(id);
+      }
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          alreadyFavorite
+              ? 'تم حذف $name من المفضلة'
+              : 'تمت إضافة $name إلى المفضلة',
+        ),
+        duration: const Duration(seconds: 2),
+      ),
+    );
   }
 
   String _formatDate(DateTime date) {
@@ -96,6 +153,15 @@ class _MatchesScreenState extends State<MatchesScreen> {
         errorMessage = error.toString().replaceFirst('Exception: ', '');
       });
     }
+  }
+
+  void _openMatchDetails(FootballMatch match) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => MatchDetailsScreen(match: match),
+      ),
+    );
   }
 
   @override
@@ -280,110 +346,140 @@ class _MatchesScreenState extends State<MatchesScreen> {
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: borderColor),
       ),
-      child: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    match.leagueName,
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      color: isDark
-                          ? const Color(0xFF8B949E)
-                          : Colors.blueGrey,
-                    ),
-                  ),
-                ),
-                Text(
-                  _statusText(match),
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                    color: match.isLive
-                        ? liveColor
-                        : Theme.of(context).colorScheme.primary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          const Divider(height: 1),
-
-          Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 12,
-              vertical: 16,
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: _buildTeam(
-                    match.homeTeam,
-                    match.homeLogo,
-                    isDark,
-                  ),
-                ),
-
-                Column(
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(14),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: () => _openMatchDetails(match),
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+                child: Row(
                   children: [
-                    Text(
-                      '${match.homeScore ?? '-'}  :  ${match.awayScore ?? '-'}',
-                      style: const TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    if (match.isLive && match.elapsed != null)
-                      Text(
-                        "${match.elapsed}'",
+                    Expanded(
+                      child: Text(
+                        match.leagueName,
                         style: TextStyle(
-                          color: liveColor,
                           fontSize: 12,
                           fontWeight: FontWeight.bold,
+                          color: isDark
+                              ? const Color(0xFF8B949E)
+                              : Colors.blueGrey,
                         ),
                       ),
+                    ),
+                    Text(
+                      _statusText(match),
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: match.isLive
+                            ? liveColor
+                            : Theme.of(context).colorScheme.primary,
+                      ),
+                    ),
                   ],
                 ),
+              ),
 
-                Expanded(
-                  child: _buildTeam(
-                    match.awayTeam,
-                    match.awayLogo,
-                    isDark,
-                  ),
+              const Divider(height: 1),
+
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 12,
                 ),
-              ],
-            ),
-          ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: _buildTeam(
+                        teamId: match.homeTeamId,
+                        name: match.homeTeam,
+                        logo: match.homeLogo,
+                        isDark: isDark,
+                      ),
+                    ),
 
-          if (match.stadium != null || match.referee != null)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-              child: Text(
-                [
-                  if (match.stadium != null) match.stadium!,
-                  if (match.referee != null) 'الحكم: ${match.referee}',
-                ].join(' • '),
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 10,
-                  color: isDark
-                      ? const Color(0xFF8B949E)
-                      : Colors.grey,
+                    Column(
+                      children: [
+                        Text(
+                          '${match.homeScore ?? '-'} : ${match.awayScore ?? '-'}',
+                          style: const TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        if (match.isLive && match.elapsed != null)
+                          Text(
+                            "${match.elapsed}'",
+                            style: TextStyle(
+                              color: liveColor,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                      ],
+                    ),
+
+                    Expanded(
+                      child: _buildTeam(
+                        teamId: match.awayTeamId,
+                        name: match.awayTeam,
+                        logo: match.awayLogo,
+                        isDark: isDark,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ),
-        ],
+
+              if (match.stadium != null || match.referee != null)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                  child: Text(
+                    [
+                      if (match.stadium != null) match.stadium!,
+                      if (match.referee != null)
+                        'الحكم: ${match.referee}',
+                    ].join(' • '),
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: isDark
+                          ? const Color(0xFF8B949E)
+                          : Colors.grey,
+                    ),
+                  ),
+                ),
+
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Text(
+                  'اضغط لعرض تفاصيل المباراة',
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: isDark ? Colors.white38 : Colors.black38,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
 
-  Widget _buildTeam(String name, String logo, bool isDark) {
+  Widget _buildTeam({
+    required int? teamId,
+    required String name,
+    required String logo,
+    required bool isDark,
+  }) {
+    final id = teamId?.toString() ?? '';
+    final isFavorite = id.isNotEmpty && favoriteTeamIds.contains(id);
+
     return Column(
       children: [
         SizedBox(
@@ -402,7 +498,9 @@ class _MatchesScreenState extends State<MatchesScreen> {
                   },
                 ),
         ),
-        const SizedBox(height: 8),
+
+        const SizedBox(height: 6),
+
         Text(
           name.isEmpty ? 'غير معروف' : name,
           textAlign: TextAlign.center,
@@ -411,6 +509,31 @@ class _MatchesScreenState extends State<MatchesScreen> {
           style: const TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w600,
+          ),
+        ),
+
+        SizedBox(
+          height: 34,
+          child: IconButton(
+            padding: EdgeInsets.zero,
+            visualDensity: VisualDensity.compact,
+            tooltip: isFavorite ? 'حذف من المفضلة' : 'إضافة للمفضلة',
+            onPressed: teamId == null
+                ? null
+                : () {
+                    _toggleFavoriteTeam(
+                      teamId: teamId,
+                      name: name,
+                      logo: logo,
+                    );
+                  },
+            icon: Icon(
+              isFavorite ? Icons.star : Icons.star_border,
+              size: 21,
+              color: isFavorite
+                  ? Colors.amber
+                  : (isDark ? Colors.white54 : Colors.grey),
+            ),
           ),
         ),
       ],
