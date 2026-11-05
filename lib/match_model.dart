@@ -1,22 +1,30 @@
 class FootballMatch {
   final int id;
+  final int? homeTeamId;
+  final int? awayTeamId;
+
   final String leagueName;
   final String leagueCountry;
   final String homeTeam;
   final String awayTeam;
   final String homeLogo;
   final String awayLogo;
+
   final int? homeScore;
   final int? awayScore;
+
   final String date;
   final String status;
   final String statusLong;
   final int? elapsed;
+
   final String? stadium;
   final String? referee;
 
   const FootballMatch({
     required this.id,
+    this.homeTeamId,
+    this.awayTeamId,
     required this.leagueName,
     required this.leagueCountry,
     required this.homeTeam,
@@ -68,18 +76,27 @@ class FootballMatch {
 
     return FootballMatch(
       id: _toInt(fixture['id']) ?? 0,
+
+      homeTeamId: _toInt(home['id']),
+      awayTeamId: _toInt(away['id']),
+
       leagueName: _toString(league['name']),
       leagueCountry: _toString(league['country']),
+
       homeTeam: _toString(home['name']),
       awayTeam: _toString(away['name']),
+
       homeLogo: _toString(home['logo']),
       awayLogo: _toString(away['logo']),
+
       homeScore: _toInt(goals['home']),
       awayScore: _toInt(goals['away']),
+
       date: _toString(fixture['date']),
       status: _toString(statusInfo['short']),
       statusLong: _toString(statusInfo['long']),
       elapsed: _toInt(statusInfo['elapsed']),
+
       stadium: _nullableString(venue['name']),
       referee: _nullableString(fixture['referee']),
     );
@@ -98,7 +115,11 @@ class FootballMatch {
 
   static String? _nullableString(dynamic value) {
     final result = value?.toString().trim();
-    if (result == null || result.isEmpty) return null;
+
+    if (result == null || result.isEmpty) {
+      return null;
+    }
+
     return result;
   }
 
