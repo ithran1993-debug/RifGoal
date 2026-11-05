@@ -2,6 +2,11 @@ import 'package:flutter/material.dart';
 
 import 'app_constants.dart';
 import 'theme/app_theme.dart';
+import 'matches_screen.dart';
+import 'leagues_screen.dart';
+import 'standings_screen.dart';
+import 'news_screen.dart';
+import 'favorites_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -50,15 +55,24 @@ class _HomeScreenState extends State<HomeScreen> {
     'المفضلة',
   ];
 
+  late final List<Widget> pages = [
+    const HomeOverview(),
+    const MatchesScreen(),
+    const LeaguesScreen(),
+    const StandingsScreen(),
+    const NewsScreen(),
+    const FavoritesScreen(),
+  ];
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          'RIF GOAL',
-          style: TextStyle(
+        title: Text(
+          selectedIndex == 0 ? 'RIF GOAL' : titles[selectedIndex],
+          style: const TextStyle(
             fontWeight: FontWeight.bold,
-            fontSize: 21,
+            fontSize: 20,
           ),
         ),
         actions: [
@@ -69,14 +83,9 @@ class _HomeScreenState extends State<HomeScreen> {
           const SizedBox(width: 8),
         ],
       ),
-      body: Center(
-        child: Text(
-          titles[selectedIndex],
-          style: const TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
+      body: IndexedStack(
+        index: selectedIndex,
+        children: pages,
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: selectedIndex,
@@ -93,6 +102,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           NavigationDestination(
             icon: Icon(Icons.sports_soccer_outlined),
+            selectedIcon: Icon(Icons.sports_soccer),
             label: 'المباريات',
           ),
           NavigationDestination(
@@ -109,6 +119,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           NavigationDestination(
             icon: Icon(Icons.star_outline),
+            selectedIcon: Icon(Icons.star),
             label: 'المفضلة',
           ),
         ],
@@ -116,3 +127,51 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 }
+
+class HomeOverview extends StatelessWidget {
+  const HomeOverview({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final primary = Theme.of(context).colorScheme.primary;
+
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        Container(
+          padding: const EdgeInsets.all(22),
+          decoration: BoxDecoration(
+            color: primary,
+            borderRadius: BorderRadius.circular(18),
+          ),
+          child: const Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'مرحباً بك في ريف جول',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 21,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              SizedBox(height: 8),
+              Text(
+                'كل أخبار ونتائج كرة القدم في مكان واحد',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 13,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 20),
+        const Text(
+          'تابع كرة القدم',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const
