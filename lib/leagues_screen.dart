@@ -1,9 +1,5 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 
-import 'api_config.dart';
 import 'favorites_service.dart';
 import 'league_detail_screen.dart';
 import 'football_translations.dart';
@@ -19,16 +15,123 @@ class _LeaguesScreenState extends State<LeaguesScreen> {
   final FavoritesService favoritesService = FavoritesService();
   final TextEditingController searchController = TextEditingController();
 
-  List<Map<String, dynamic>> leagues = [];
   Set<String> favoriteLeagueIds = {};
 
-  bool isLoading = true;
-  String? errorMessage;
+  // قائمة البطولات المحلية المرتبة حسب القوة والشهرة
+  final List<Map<String, dynamic>> leagues = [
+    {
+      'id': '2',
+      'name': 'UEFA Champions League',
+      'country': 'أوروبا',
+      'logo': 'https://media.api-sports.io/football/leagues/2.png',
+    },
+    {
+      'id': '39',
+      'name': 'Premier League',
+      'country': 'إنجلترا',
+      'logo': 'https://media.api-sports.io/football/leagues/39.png',
+    },
+    {
+      'id': '140',
+      'name': 'La Liga',
+      'country': 'إسبانيا',
+      'logo': 'https://media.api-sports.io/football/leagues/140.png',
+    },
+    {
+      'id': '135',
+      'name': 'Serie A',
+      'country': 'إيطاليا',
+      'logo': 'https://media.api-sports.io/football/leagues/135.png',
+    },
+    {
+      'id': '78',
+      'name': 'Bundesliga',
+      'country': 'ألمانيا',
+      'logo': 'https://media.api-sports.io/football/leagues/78.png',
+    },
+    {
+      'id': '61',
+      'name': 'Ligue 1',
+      'country': 'فرنسا',
+      'logo': 'https://media.api-sports.io/football/leagues/61.png',
+    },
+    {
+      'id': '12',
+      'name': 'CAF Champions League',
+      'country': 'إفريقيا',
+      'logo': 'https://media.api-sports.io/football/leagues/12.png',
+    },
+    {
+      'id': '307',
+      'name': 'Saudi Pro League',
+      'country': 'السعودية',
+      'logo': 'https://media.api-sports.io/football/leagues/307.png',
+    },
+    {
+      'id': '94',
+      'name': 'Primeira Liga',
+      'country': 'البرتغال',
+      'logo': 'https://media.api-sports.io/football/leagues/94.png',
+    },
+    {
+      'id': '88',
+      'name': 'Eredivisie',
+      'country': 'هولندا',
+      'logo': 'https://media.api-sports.io/football/leagues/88.png',
+    },
+    {
+      'id': '71',
+      'name': 'Serie A',
+      'country': 'البرازيل',
+      'logo': 'https://media.api-sports.io/football/leagues/71.png',
+    },
+    {
+      'id': '128',
+      'name': 'Liga Profesional',
+      'country': 'الأرجنتين',
+      'logo': 'https://media.api-sports.io/football/leagues/128.png',
+    },
+    {
+      'id': '203',
+      'name': 'Super Lig',
+      'country': 'تركيا',
+      'logo': 'https://media.api-sports.io/football/leagues/203.png',
+    },
+    {
+      'id': '200',
+      'name': 'Botola Pro',
+      'country': 'المغرب',
+      'logo': 'https://media.api-sports.io/football/leagues/200.png',
+    },
+    {
+      'id': '253',
+      'name': 'MLS',
+      'country': 'أمريكا',
+      'logo': 'https://media.api-sports.io/football/leagues/253.png',
+    },
+    {
+      'id': '233',
+      'name': 'Premier League',
+      'country': 'مصر',
+      'logo': 'https://media.api-sports.io/football/leagues/233.png',
+    },
+    {
+      'id': '144',
+      'name': 'Jupiler Pro League',
+      'country': 'بلجيكا',
+      'logo': 'https://media.api-sports.io/football/leagues/144.png',
+    },
+    {
+      'id': '179',
+      'name': 'Premiership',
+      'country': 'اسكتلندا',
+      'logo': 'https://media.api-sports.io/football/leagues/179.png',
+    },
+  ];
 
   @override
   void initState() {
     super.initState();
-    loadLeagues();
     loadFavorites();
   }
 
@@ -40,75 +143,6 @@ class _LeaguesScreenState extends State<LeaguesScreen> {
     setState(() {
       favoriteLeagueIds = favorites.toSet();
     });
-  }
-
-  Future<void> loadLeagues() async {
-    setState(() {
-      isLoading = true;
-      errorMessage = null;
-    });
-
-    try {
-      final uri = Uri.parse('${ApiConfig.baseUrl}/api/leagues');
-
-      final response = await http
-          .get(uri, headers: {'Accept': 'application/json'})
-          .timeout(ApiConfig.timeout);
-
-      if (response.statusCode != 200) {
-        throw Exception(
-          'تعذر تحميل البطولات. رمز الاستجابة: ${response.statusCode}',
-        );
-      }
-
-      final decoded = jsonDecode(utf8.decode(response.bodyBytes));
-
-      if (decoded is! Map || decoded['response'] is! List) {
-        throw Exception('صيغة بيانات البطولات غير صحيحة.');
-      }
-
-      final List<Map<String, dynamic>> loadedLeagues = [];
-
-      for (final item in decoded['response']) {
-        if (item is! Map) continue;
-
-        final leagueData = item['league'] is Map
-            ? Map<String, dynamic>.from(item['league'])
-            : <String, dynamic>{};
-
-        final countryData = item['country'] is Map
-            ? Map<String, dynamic>.from(item['country'])
-            : <String, dynamic>{};
-
-        final id = leagueData['id'];
-
-        if (id == null) continue;
-
-        loadedLeagues.add({
-          'id': id.toString(),
-          'name': leagueData['name']?.toString() ?? 'بطولة',
-          'logo': leagueData['logo']?.toString() ?? '',
-          'country': countryData['name']?.toString() ?? '',
-          'flag': countryData['flag']?.toString() ?? '',
-          'type': leagueData['type']?.toString() ?? '',
-        });
-      }
-
-      if (!mounted) return;
-
-      setState(() {
-        leagues = loadedLeagues;
-        isLoading = false;
-      });
-    } catch (error) {
-      if (!mounted) return;
-
-      setState(() {
-        errorMessage =
-            error.toString().replaceFirst('Exception: ', '');
-        isLoading = false;
-      });
-    }
   }
 
   Future<void> toggleFavorite(Map<String, dynamic> league) async {
@@ -136,17 +170,6 @@ class _LeaguesScreenState extends State<LeaguesScreen> {
         favoriteLeagueIds.add(id);
       }
     });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          isFavorite
-              ? 'تم حذف البطولة من المفضلة'
-              : 'تمت إضافة البطولة إلى المفضلة',
-        ),
-        duration: const Duration(seconds: 2),
-      ),
-    );
   }
 
   void openLeagueDetails(Map<String, dynamic> league) {
@@ -174,6 +197,7 @@ class _LeaguesScreenState extends State<LeaguesScreen> {
 
     return leagues.where((league) {
       final name = league['name'].toString().toLowerCase();
+
       final translatedName = FootballTranslations.league(
         league['name'].toString(),
       ).toLowerCase();
@@ -195,6 +219,8 @@ class _LeaguesScreenState extends State<LeaguesScreen> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primary = Theme.of(context).colorScheme.primary;
+    final items = filteredLeagues;
 
     return Column(
       children: [
@@ -223,172 +249,152 @@ class _LeaguesScreenState extends State<LeaguesScreen> {
             ),
           ),
         ),
+
+        Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 5,
+          ),
+          child: Row(
+            children: [
+              Icon(
+                Icons.emoji_events,
+                color: primary,
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              const Text(
+                'أهم البطولات العالمية',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 15,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                '${items.length} بطولة',
+                style: TextStyle(
+                  color: isDark ? Colors.white54 : Colors.grey,
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ),
+        ),
+
         Expanded(
-          child: _buildContent(isDark),
+          child: items.isEmpty
+              ? const Center(
+                  child: Text('لا توجد بطولة مطابقة للبحث'),
+                )
+              : ListView.builder(
+                  padding: const EdgeInsets.fromLTRB(12, 5, 12, 20),
+                  itemCount: items.length,
+                  itemBuilder: (context, index) {
+                    return _buildLeagueCard(
+                      items[index],
+                      index,
+                      isDark,
+                    );
+                  },
+                ),
         ),
       ],
     );
   }
 
-  Widget _buildContent(bool isDark) {
-    if (isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(),
-      );
-    }
-
-    if (errorMessage != null) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.wifi_off, size: 48),
-              const SizedBox(height: 12),
-              const Text(
-                'تعذر تحميل البطولات',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                errorMessage!,
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 15),
-              ElevatedButton.icon(
-                onPressed: loadLeagues,
-                icon: const Icon(Icons.refresh),
-                label: const Text('إعادة المحاولة'),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    final items = filteredLeagues;
-
-    if (items.isEmpty) {
-      return RefreshIndicator(
-        onRefresh: loadLeagues,
-        child: ListView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          children: const [
-            SizedBox(height: 100),
-            Icon(Icons.emoji_events_outlined, size: 55),
-            SizedBox(height: 15),
-            Center(child: Text('لا توجد بطولات مطابقة')),
-          ],
-        ),
-      );
-    }
-
-    return RefreshIndicator(
-      onRefresh: loadLeagues,
-      child: ListView.builder(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(12, 4, 12, 20),
-        itemCount: items.length,
-        itemBuilder: (context, index) {
-          return _buildLeagueCard(items[index], isDark);
-        },
-      ),
-    );
-  }
-
   Widget _buildLeagueCard(
     Map<String, dynamic> league,
+    int index,
     bool isDark,
   ) {
     final id = league['id'].toString();
     final isFavorite = favoriteLeagueIds.contains(id);
 
-    final translatedLeagueName = FootballTranslations.league(
-      league['name'].toString(),
-    );
-
     return Card(
-      margin: const EdgeInsets.only(bottom: 10),
+      margin: const EdgeInsets.only(bottom: 9),
       elevation: 1,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(13),
       ),
       child: InkWell(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(13),
         onTap: () => openLeagueDetails(league),
         child: Padding(
           padding: const EdgeInsets.symmetric(
             horizontal: 12,
-            vertical: 13,
+            vertical: 11,
           ),
           child: Row(
             children: [
-              SizedBox(
-                width: 48,
-                height: 48,
-                child: league['logo'].toString().isEmpty
-                    ? const Icon(
-                        Icons.emoji_events_outlined,
-                        size: 35,
-                      )
-                    : Image.network(
-                        league['logo'].toString(),
-                        fit: BoxFit.contain,
-                        errorBuilder: (_, __, ___) {
-                          return const Icon(
-                            Icons.emoji_events_outlined,
-                            size: 35,
-                          );
-                        },
-                      ),
+              Container(
+                width: 27,
+                alignment: Alignment.center,
+                child: Text(
+                  '${index + 1}',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.white54 : Colors.grey,
+                  ),
+                ),
               ),
+
+              const SizedBox(width: 8),
+
+              SizedBox(
+                width: 45,
+                height: 45,
+                child: Image.network(
+                  league['logo'].toString(),
+                  fit: BoxFit.contain,
+                  errorBuilder: (_, __, ___) {
+                    return const Icon(
+                      Icons.emoji_events_outlined,
+                      size: 32,
+                    );
+                  },
+                ),
+              ),
+
               const SizedBox(width: 12),
+
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      translatedLeagueName,
+                      FootballTranslations.league(
+                        league['name'].toString(),
+                      ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
-                        fontSize: 14,
+                        fontSize: 13,
                       ),
                     ),
                     const SizedBox(height: 5),
                     Text(
-                      league['country'].toString().isEmpty
-                          ? 'بطولة كرة القدم'
-                          : league['country'].toString(),
+                      league['country'].toString(),
                       style: TextStyle(
-                        fontSize: 12,
+                        fontSize: 11,
                         color: isDark ? Colors.white54 : Colors.grey,
-                      ),
-                    ),
-                    const SizedBox(height: 5),
-                    Text(
-                      'اضغط لعرض المباريات والترتيب',
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: Theme.of(context).colorScheme.primary,
                       ),
                     ),
                   ],
                 ),
               ),
+
               IconButton(
-                tooltip: isFavorite
-                    ? 'حذف من المفضلة'
-                    : 'إضافة للمفضلة',
                 onPressed: () => toggleFavorite(league),
+                tooltip: 'المفضلة',
                 icon: Icon(
                   isFavorite ? Icons.star : Icons.star_border,
                   color: isFavorite ? Colors.amber : Colors.grey,
-                  size: 27,
                 ),
               ),
+
               const Icon(
                 Icons.chevron_left,
                 color: Colors.grey,
