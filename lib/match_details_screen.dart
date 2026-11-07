@@ -20,6 +20,8 @@ class MatchDetailsScreen extends StatelessWidget {
 
     final Color mutedColor = theme.colorScheme.onSurfaceVariant;
 
+    final String matchDate = match.date.toString();
+
     final String status = match.isLive
         ? 'مباشر'
         : match.isFinished
@@ -70,9 +72,7 @@ class MatchDetailsScreen extends StatelessWidget {
               ],
             ),
           ),
-
           const SizedBox(height: 22),
-
           Container(
             padding: const EdgeInsets.symmetric(
               horizontal: 14,
@@ -139,15 +139,11 @@ class MatchDetailsScreen extends StatelessWidget {
                     ),
                   ],
                 ),
-
                 const SizedBox(height: 22),
-
                 Divider(
                   color: theme.dividerColor.withOpacity(0.3),
                 ),
-
                 const SizedBox(height: 10),
-
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -159,7 +155,7 @@ class MatchDetailsScreen extends StatelessWidget {
                     const SizedBox(width: 8),
                     Flexible(
                       child: Text(
-                        match.date,
+                        matchDate,
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           color: mutedColor,
@@ -172,9 +168,7 @@ class MatchDetailsScreen extends StatelessWidget {
               ],
             ),
           ),
-
           const SizedBox(height: 25),
-
           const Text(
             'معلومات المباراة',
             style: TextStyle(
@@ -182,9 +176,7 @@ class MatchDetailsScreen extends StatelessWidget {
               fontWeight: FontWeight.bold,
             ),
           ),
-
           const SizedBox(height: 12),
-
           Container(
             padding: const EdgeInsets.symmetric(
               horizontal: 15,
@@ -202,7 +194,7 @@ class MatchDetailsScreen extends StatelessWidget {
                 _InfoRow(
                   icon: Icons.calendar_today_outlined,
                   title: 'التاريخ',
-                  value: match.date,
+                  value: matchDate,
                 ),
                 _InfoRow(
                   icon: Icons.stadium_outlined,
@@ -265,7 +257,7 @@ class _TeamColumn extends StatelessWidget {
               : Image.network(
                   logo,
                   fit: BoxFit.contain,
-                  errorBuilder: (_, __, ___) {
+                  errorBuilder: (context, error, stackTrace) {
                     return const Icon(
                       Icons.shield_outlined,
                       size: 55,
