@@ -1,62 +1,62 @@
 name: Build Rif Goal APK
 
 on:
-workflow_dispatch:
+  workflow_dispatch:
 
 permissions:
-contents: read
+  contents: read
 
 jobs:
-build:
-runs-on: ubuntu-latest
+  build:
+    runs-on: ubuntu-latest
 
-steps:
-  - name: Checkout repository
-    uses: actions/checkout@v4
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-  - name: Setup Java
-    uses: actions/setup-java@v4
-    with:
-      distribution: temurin
-      java-version: '17'
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
 
-  - name: Setup Flutter
-    uses: subosito/flutter-action@v2
-    with:
-      channel: stable
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
 
-  - name: Generate Android project
-    run: flutter create --platforms=android --project-name rifgoal .
+      - name: Generate Android project
+        run: flutter create --platforms=android --project-name rifgoal .
 
-  - name: Add Internet permission
-    run: |
-      python3 - <<'PY'
-      from pathlib import Path
+      - name: Add Internet permission
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
 
-      path = Path("android/app/src/main/AndroidManifest.xml")
-      content = path.read_text()
+          path = Path("android/app/src/main/AndroidManifest.xml")
+          content = path.read_text()
 
-      permission = '<uses-permission android:name="android.permission.INTERNET"/>'
+          permission = '<uses-permission android:name="android.permission.INTERNET"/>'
 
-      if permission not in content:
-          content = content.replace(
-              '<application',
-              permission + '\n    <application',
-              1
-          )
+          if permission not in content:
+              content = content.replace(
+                  '<application',
+                  permission + '\n    <application',
+                  1
+              )
 
-      path.write_text(content)
-      print("Internet permission configured.")
-      PY
+          path.write_text(content)
+          print("Internet permission configured.")
+          PY
 
-  - name: Get dependencies
-    run: flutter pub get
+      - name: Get dependencies
+        run: flutter pub get
 
-  - name: Build release APK
-    run: flutter build apk --release
+      - name: Build release APK
+        run: flutter build apk --release
 
-  - name: Upload APK
-    uses: actions/upload-artifact@v4
-    with:
-      name: RifGoal-APK
-      path: build/app/outputs/flutter-apk/app-release.apk
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: RifGoal-APK
+          path: build/app/outputs/flutter-apk/app-release.apk
