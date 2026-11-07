@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'match_model.dart';
+import 'football_translations.dart';
 
 class MatchDetailsScreen extends StatelessWidget {
   final FootballMatch match;
@@ -14,9 +15,8 @@ class MatchDetailsScreen extends StatelessWidget {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    final Color cardColor = isDark
-        ? const Color(0xFF161B22)
-        : Colors.white;
+    final Color cardColor =
+        isDark ? const Color(0xFF161B22) : Colors.white;
 
     final Color mutedColor = theme.colorScheme.onSurfaceVariant;
 
@@ -45,12 +45,11 @@ class MatchDetailsScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          // معلومات البطولة
           Center(
             child: Column(
               children: [
                 Text(
-                  match.leagueName,
+                  FootballTranslations.league(match.leagueName),
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: theme.colorScheme.primary,
@@ -74,7 +73,6 @@ class MatchDetailsScreen extends StatelessWidget {
 
           const SizedBox(height: 22),
 
-          // بطاقة النتيجة
           Container(
             padding: const EdgeInsets.symmetric(
               horizontal: 14,
@@ -97,7 +95,6 @@ class MatchDetailsScreen extends StatelessWidget {
                         logo: match.homeLogo,
                       ),
                     ),
-
                     Expanded(
                       child: Column(
                         children: [
@@ -110,7 +107,6 @@ class MatchDetailsScreen extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(height: 12),
-
                           Container(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 14,
@@ -121,8 +117,7 @@ class MatchDetailsScreen extends StatelessWidget {
                               borderRadius: BorderRadius.circular(20),
                             ),
                             child: Text(
-                              match.isLive &&
-                                      match.elapsed != null
+                              match.isLive && match.elapsed != null
                                   ? '$status ${match.elapsed}'
                                   : status,
                               textAlign: TextAlign.center,
@@ -136,7 +131,6 @@ class MatchDetailsScreen extends StatelessWidget {
                         ],
                       ),
                     ),
-
                     Expanded(
                       child: _TeamColumn(
                         name: match.awayTeam,
@@ -181,7 +175,6 @@ class MatchDetailsScreen extends StatelessWidget {
 
           const SizedBox(height: 25),
 
-          // عنوان المعلومات
           const Text(
             'معلومات المباراة',
             style: TextStyle(
@@ -192,7 +185,6 @@ class MatchDetailsScreen extends StatelessWidget {
 
           const SizedBox(height: 12),
 
-          // بطاقة المعلومات
           Container(
             padding: const EdgeInsets.symmetric(
               horizontal: 15,
@@ -212,29 +204,25 @@ class MatchDetailsScreen extends StatelessWidget {
                   title: 'التاريخ',
                   value: match.date,
                 ),
-
                 _InfoRow(
                   icon: Icons.stadium_outlined,
                   title: 'الملعب',
                   value: _valueOrDefault(match.stadium),
                 ),
-
                 _InfoRow(
                   icon: Icons.sports,
                   title: 'الحكم',
                   value: _valueOrDefault(match.referee),
                 ),
-
                 _InfoRow(
                   icon: Icons.flag_outlined,
                   title: 'البلد',
                   value: _valueOrDefault(match.leagueCountry),
                 ),
-
                 _InfoRow(
                   icon: Icons.emoji_events_outlined,
                   title: 'البطولة',
-                  value: _valueOrDefault(match.leagueName),
+                  value: FootballTranslations.league(match.leagueName),
                   showDivider: false,
                 ),
               ],
@@ -253,7 +241,6 @@ class MatchDetailsScreen extends StatelessWidget {
   }
 }
 
-// عرض الفريق وشعاره
 class _TeamColumn extends StatelessWidget {
   final String name;
   final String logo;
@@ -286,11 +273,9 @@ class _TeamColumn extends StatelessWidget {
                   },
                 ),
         ),
-
         const SizedBox(height: 12),
-
         Text(
-          name,
+          FootballTranslations.team(name),
           textAlign: TextAlign.center,
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
@@ -304,7 +289,6 @@ class _TeamColumn extends StatelessWidget {
   }
 }
 
-// سطر معلومات المباراة
 class _InfoRow extends StatelessWidget {
   final IconData icon;
   final String title;
@@ -334,9 +318,7 @@ class _InfoRow extends StatelessWidget {
                 size: 21,
                 color: Theme.of(context).colorScheme.primary,
               ),
-
               const SizedBox(width: 12),
-
               Expanded(
                 child: Text(
                   title,
@@ -346,9 +328,7 @@ class _InfoRow extends StatelessWidget {
                   ),
                 ),
               ),
-
               const SizedBox(width: 8),
-
               Flexible(
                 child: Text(
                   value,
@@ -364,13 +344,10 @@ class _InfoRow extends StatelessWidget {
             ],
           ),
         ),
-
         if (showDivider)
           Divider(
             height: 1,
-            color: Theme.of(context)
-                .dividerColor
-                .withOpacity(0.2),
+            color: Theme.of(context).dividerColor.withOpacity(0.2),
           ),
       ],
     );
