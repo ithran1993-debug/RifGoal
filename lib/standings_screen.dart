@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'api_config.dart';
 import 'standing_model.dart';
 import 'standings_service.dart';
+import 'football_translations.dart';
 
 class StandingsScreen extends StatefulWidget {
   const StandingsScreen({super.key});
@@ -365,7 +366,7 @@ class _StandingsScreenState extends State<StandingsScreen> {
                 const SizedBox(width: 9),
                 Expanded(
                   child: Text(
-                    item.teamName,
+                    FootballTranslations.team(item.teamName),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
