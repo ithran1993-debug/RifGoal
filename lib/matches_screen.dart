@@ -5,7 +5,6 @@ import 'competition_selector.dart';
 import 'match_service.dart';
 import 'match_model.dart';
 import 'api_config.dart';
-import 'favorites_service.dart';
 import 'match_details_screen.dart';
 import 'football_translations.dart';
 
@@ -18,13 +17,11 @@ class MatchesScreen extends StatefulWidget {
 
 class _MatchesScreenState extends State<MatchesScreen> {
   final MatchService _matchService = MatchService();
-  final FavoritesService _favoritesService = FavoritesService();
 
   DateTime selectedDate = DateTime.now();
   String selectedCompetition = 'ALL';
 
   List<FootballMatch> matches = [];
-  Set<String> favoriteTeamIds = {};
 
   bool isLoading = true;
   String? errorMessage;
@@ -52,60 +49,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
   @override
   void initState() {
     super.initState();
-    _loadFavoriteTeams();
     _loadMatches();
-  }
-
-  Future<void> _loadFavoriteTeams() async {
-    final ids = await _favoritesService.getFavoriteTeams();
-
-    if (!mounted) return;
-
-    setState(() {
-      favoriteTeamIds = ids.toSet();
-    });
-  }
-
-  Future<void> _toggleFavoriteTeam({
-    required int? teamId,
-    required String name,
-    required String logo,
-  }) async {
-    if (teamId == null) return;
-
-    final id = teamId.toString();
-    final alreadyFavorite = favoriteTeamIds.contains(id);
-
-    if (alreadyFavorite) {
-      await _favoritesService.removeTeam(id);
-    } else {
-      await _favoritesService.saveTeam(
-        id: id,
-        name: FootballTranslations.team(name),
-        logo: logo,
-      );
-    }
-
-    if (!mounted) return;
-
-    setState(() {
-      if (alreadyFavorite) {
-        favoriteTeamIds.remove(id);
-      } else {
-        favoriteTeamIds.add(id);
-      }
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          alreadyFavorite
-              ? 'تم حذف ${FootballTranslations.team(name)} من المفضلة'
-              : 'تمت إضافة ${FootballTranslations.team(name)} إلى المفضلة',
-        ),
-        duration: const Duration(seconds: 2),
-      ),
-    );
   }
 
   int _getLeaguePriority(FootballMatch match) {
@@ -189,7 +133,6 @@ class _MatchesScreenState extends State<MatchesScreen> {
     }
   }
 
-  // تم إصلاح اسم الدالة حتى يطابق استدعاء بطاقة المباراة.
   void _openMatchDetails(FootballMatch match) {
     Navigator.push(
       context,
@@ -421,10 +364,8 @@ class _MatchesScreenState extends State<MatchesScreen> {
                   children: [
                     Expanded(
                       child: _buildTeam(
-                        teamId: match.homeTeamId,
                         name: match.homeTeam,
                         logo: match.homeLogo,
-                        isDark: isDark,
                       ),
                     ),
                     Column(
@@ -449,10 +390,8 @@ class _MatchesScreenState extends State<MatchesScreen> {
                     ),
                     Expanded(
                       child: _buildTeam(
-                        teamId: match.awayTeamId,
                         name: match.awayTeam,
                         logo: match.awayLogo,
-                        isDark: isDark,
                       ),
                     ),
                   ],
@@ -494,13 +433,9 @@ class _MatchesScreenState extends State<MatchesScreen> {
   }
 
   Widget _buildTeam({
-    required int? teamId,
     required String name,
     required String logo,
-    required bool isDark,
   }) {
-    final id = teamId?.toString() ?? '';
-    final isFavorite = id.isNotEmpty && favoriteTeamIds.contains(id);
     final translatedName = FootballTranslations.team(name);
 
     return Column(
@@ -530,30 +465,6 @@ class _MatchesScreenState extends State<MatchesScreen> {
           style: const TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w600,
-          ),
-        ),
-        SizedBox(
-          height: 34,
-          child: IconButton(
-            padding: EdgeInsets.zero,
-            visualDensity: VisualDensity.compact,
-            tooltip: isFavorite ? 'حذف من المفضلة' : 'إضافة للمفضلة',
-            onPressed: teamId == null
-                ? null
-                : () {
-                    _toggleFavoriteTeam(
-                      teamId: teamId,
-                      name: name,
-                      logo: logo,
-                    );
-                  },
-            icon: Icon(
-              isFavorite ? Icons.star : Icons.star_border,
-              size: 21,
-              color: isFavorite
-                  ? Colors.amber
-                  : (isDark ? Colors.white54 : Colors.grey),
-            ),
           ),
         ),
       ],
