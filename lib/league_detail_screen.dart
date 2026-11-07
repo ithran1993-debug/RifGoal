@@ -5,6 +5,7 @@ import 'match_model.dart';
 import 'match_service.dart';
 import 'standing_model.dart';
 import 'standings_service.dart';
+import 'football_translations.dart';
 
 class LeagueDetailScreen extends StatefulWidget {
 final int leagueId;
@@ -63,9 +64,11 @@ return '${date.year}-'
 }
 
 Future<void> _loadMatches() async {
+if (!mounted) return;
+
 setState(() {
-matchesLoading = true;
-matchesError = null;
+  matchesLoading = true;
+  matchesError = null;
 });
 
 try {
@@ -93,7 +96,8 @@ try {
   if (!mounted) return;
 
   setState(() {
-    matchesError = error.toString().replaceFirst('Exception: ', '');
+    matchesError =
+        error.toString().replaceFirst('Exception: ', '');
     matchesLoading = false;
   });
 }
@@ -101,9 +105,11 @@ try {
 }
 
 Future<void> _loadStandings() async {
+if (!mounted) return;
+
 setState(() {
-standingsLoading = true;
-standingsError = null;
+  standingsLoading = true;
+  standingsError = null;
 });
 
 try {
@@ -138,14 +144,6 @@ try {
 
 }
 
-Future<void> _refreshCurrentTab() async {
-if (_tabController.index == 0) {
-await _loadMatches();
-} else {
-await _loadStandings();
-}
-}
-
 @override
 void dispose() {
 _tabController.dispose();
@@ -161,7 +159,7 @@ final primary = Theme.of(context).colorScheme.primary;
 return Scaffold(
   appBar: AppBar(
     title: Text(
-      widget.leagueName,
+      FootballTranslations.league(widget.leagueName),
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
       style: const TextStyle(
@@ -251,7 +249,7 @@ return Container(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              widget.leagueName,
+              FootballTranslations.league(widget.leagueName),
               style: const TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 16,
@@ -264,7 +262,9 @@ return Container(
                   : '${widget.country} • رقم ${widget.leagueId}',
               style: TextStyle(
                 fontSize: 12,
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                color: Theme.of(context)
+                    .colorScheme
+                    .onSurfaceVariant,
               ),
             ),
           ],
@@ -284,10 +284,7 @@ child: CircularProgressIndicator(),
 }
 
 if (matchesError != null) {
-  return _buildError(
-    matchesError!,
-    _loadMatches,
-  );
+  return _buildError(matchesError!, _loadMatches);
 }
 
 if (matches.isEmpty) {
@@ -330,12 +327,14 @@ return Container(
       Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            match.leagueName,
-            style: TextStyle(
-              fontSize: 12,
-              color: Theme.of(context).colorScheme.primary,
-              fontWeight: FontWeight.bold,
+          Expanded(
+            child: Text(
+              FootballTranslations.league(match.leagueName),
+              style: TextStyle(
+                fontSize: 12,
+                color: Theme.of(context).colorScheme.primary,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
           Text(
@@ -422,7 +421,7 @@ size: 34,
 ),
 const SizedBox(height: 6),
 Text(
-name,
+FootballTranslations.team(name),
 textAlign: TextAlign.center,
 maxLines: 2,
 overflow: TextOverflow.ellipsis,
@@ -443,10 +442,7 @@ child: CircularProgressIndicator(),
 }
 
 if (standingsError != null) {
-  return _buildError(
-    standingsError!,
-    _loadStandings,
-  );
+  return _buildError(standingsError!, _loadStandings);
 }
 
 if (standings.isEmpty) {
@@ -561,7 +557,7 @@ return Container(
             const SizedBox(width: 7),
             Expanded(
               child: Text(
-                item.teamName,
+                FootballTranslations.team(item.teamName),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(fontSize: 12),
@@ -592,7 +588,10 @@ return Container(
 
 }
 
-Widget _buildError(String message, Future<void> Function() retry) {
+Widget _buildError(
+String message,
+Future<void> Function() retry,
+) {
 return Center(
 child: Padding(
 padding: const EdgeInsets.all(24),
@@ -666,7 +665,7 @@ label: const Text('تحديث'),
 String _statusText(FootballMatch match) {
 if (match.isLive) {
 return match.elapsed != null
-? 'مباشر ${match.elapsed}''
+? "مباشر ${match.elapsed}'"
 : 'مباشر';
 }
 
@@ -675,6 +674,8 @@ if (match.isFinished) return 'انتهت';
 switch (match.status) {
   case 'NS':
     return 'لم تبدأ';
+  case 'HT':
+    return 'استراحة';
   case 'PST':
     return 'مؤجلة';
   case 'CANC':
