@@ -1,34 +1,62 @@
 name: Build Rif Goal APK
 
 on:
-  workflow_dispatch:
+workflow_dispatch:
+
+permissions:
+contents: read
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
+build:
+runs-on: ubuntu-latest
 
-    steps:
-      - uses: actions/checkout@v4
+steps:
+  - name: Checkout repository
+    uses: actions/checkout@v4
 
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '17'
+  - name: Setup Java
+    uses: actions/setup-java@v4
+    with:
+      distribution: temurin
+      java-version: '17'
 
-      - uses: subosito/flutter-action@v2
-        with:
-          channel: stable
+  - name: Setup Flutter
+    uses: subosito/flutter-action@v2
+    with:
+      channel: stable
 
-      - name: Generate Android
-        run: flutter create --platforms=android --project-name rifgoal .
+  - name: Generate Android project
+    run: flutter create --platforms=android --project-name rifgoal .
 
-      - name: Build APK
-        run: |
-          flutter pub get
-          flutter build apk --release
+  - name: Add Internet permission
+    run: |
+      python3 - <<'PY'
+      from pathlib import Path
 
-      - name: Save APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: RifGoal-APK
-          path: build/app/outputs/flutter-apk/app-release.apk
+      path = Path("android/app/src/main/AndroidManifest.xml")
+      content = path.read_text()
+
+      permission = '<uses-permission android:name="android.permission.INTERNET"/>'
+
+      if permission not in content:
+          content = content.replace(
+              '<application',
+              permission + '\n    <application',
+              1
+          )
+
+      path.write_text(content)
+      print("Internet permission configured.")
+      PY
+
+  - name: Get dependencies
+    run: flutter pub get
+
+  - name: Build release APK
+    run: flutter build apk --release
+
+  - name: Upload APK
+    uses: actions/upload-artifact@v4
+    with:
+      name: RifGoal-APK
+      path: build/app/outputs/flutter-apk/app-release.apk
