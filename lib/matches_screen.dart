@@ -7,6 +7,7 @@ import 'match_model.dart';
 import 'api_config.dart';
 import 'favorites_service.dart';
 import 'match_details_screen.dart';
+import 'football_translations.dart';
 
 class MatchesScreen extends StatefulWidget {
 const MatchesScreen({super.key});
@@ -40,13 +41,13 @@ static const Map<String, int> competitionIds = {
 
 // ترتيب البطولات حسب الأولوية.
 static const Map<int, int> leaguePriority = {
-2: 1,   // دوري أبطال أوروبا
-39: 2,  // الدوري الإنجليزي
-140: 3, // الدوري الإسباني
-135: 4, // الدوري الإيطالي
-78: 5,  // الدوري الألماني
-61: 6,  // الدوري الفرنسي
-200: 7, // البطولة المغربية
+2: 1,
+39: 2,
+140: 3,
+135: 4,
+78: 5,
+61: 6,
+200: 7,
 };
 
 @override
@@ -82,7 +83,7 @@ if (alreadyFavorite) {
 } else {
   await _favoritesService.saveTeam(
     id: id,
-    name: name,
+    name: FootballTranslations.team(name),
     logo: logo,
   );
 }
@@ -101,8 +102,8 @@ ScaffoldMessenger.of(context).showSnackBar(
   SnackBar(
     content: Text(
       alreadyFavorite
-          ? 'تم حذف $name من المفضلة'
-          : 'تمت إضافة $name إلى المفضلة',
+          ? 'تم حذف ${FootballTranslations.team(name)} من المفضلة'
+          : 'تمت إضافة ${FootballTranslations.team(name)} إلى المفضلة',
     ),
     duration: const Duration(seconds: 2),
   ),
@@ -110,12 +111,10 @@ ScaffoldMessenger.of(context).showSnackBar(
 
 }
 
-// البطولات غير الموجودة في القائمة تظهر بعد البطولات المحددة.
 int _getLeaguePriority(FootballMatch match) {
 return leaguePriority[match.leagueId] ?? 100;
 }
 
-// ترتيب المباريات حسب أولوية البطولة ثم موعد المباراة.
 List<FootballMatch> _sortMatches(List<FootballMatch> list) {
 final sorted = List<FootballMatch>.from(list);
 
@@ -370,15 +369,13 @@ label: const Text('إعادة المحاولة'),
 }
 
 Widget _buildMatchCard(FootballMatch match, bool isDark) {
-final cardColor = isDark
-? const Color(0xFF161B22)
-: Colors.white;
+final cardColor =
+isDark ? const Color(0xFF161B22) : Colors.white;
 
-final borderColor = isDark
-    ? const Color(0xFF30363D)
-    : const Color(0xFFE5E7EB);
+final borderColor =
+    isDark ? const Color(0xFF30363D) : const Color(0xFFE5E7EB);
 
-final liveColor = const Color(0xFFF85149);
+const liveColor = Color(0xFFF85149);
 
 return Container(
   margin: const EdgeInsets.only(bottom: 12),
@@ -401,7 +398,7 @@ return Container(
               children: [
                 Expanded(
                   child: Text(
-                    match.leagueName,
+                    FootballTranslations.league(match.leagueName),
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
@@ -455,7 +452,7 @@ return Container(
                     if (match.isLive && match.elapsed != null)
                       Text(
                         "${match.elapsed}'",
-                        style: TextStyle(
+                        style: const TextStyle(
                           color: liveColor,
                           fontSize: 12,
                           fontWeight: FontWeight.bold,
@@ -522,6 +519,8 @@ required bool isDark,
 final id = teamId?.toString() ?? '';
 final isFavorite = id.isNotEmpty && favoriteTeamIds.contains(id);
 
+final translatedName = FootballTranslations.team(name);
+
 return Column(
   children: [
     SizedBox(
@@ -544,7 +543,7 @@ return Column(
     const SizedBox(height: 6),
 
     Text(
-      name.isEmpty ? 'غير معروف' : name,
+      translatedName.isEmpty ? 'غير معروف' : translatedName,
       textAlign: TextAlign.center,
       maxLines: 2,
       overflow: TextOverflow.ellipsis,
@@ -586,7 +585,7 @@ return Column(
 String _statusText(FootballMatch match) {
 if (match.isLive) {
 return match.elapsed != null
-? 'مباشر ${match.elapsed}''
+? "مباشر ${match.elapsed}'"
 : 'مباشر';
 }
 
