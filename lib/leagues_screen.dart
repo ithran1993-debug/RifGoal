@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import 'favorites_service.dart';
 import 'league_detail_screen.dart';
 import 'football_translations.dart';
 
@@ -12,12 +11,8 @@ class LeaguesScreen extends StatefulWidget {
 }
 
 class _LeaguesScreenState extends State<LeaguesScreen> {
-  final FavoritesService favoritesService = FavoritesService();
   final TextEditingController searchController = TextEditingController();
 
-  Set<String> favoriteLeagueIds = {};
-
-  // قائمة البطولات المحلية المرتبة حسب القوة والشهرة
   final List<Map<String, dynamic>> leagues = [
     {
       'id': '2',
@@ -129,49 +124,6 @@ class _LeaguesScreenState extends State<LeaguesScreen> {
     },
   ];
 
-  @override
-  void initState() {
-    super.initState();
-    loadFavorites();
-  }
-
-  Future<void> loadFavorites() async {
-    final favorites = await favoritesService.getFavoriteLeagues();
-
-    if (!mounted) return;
-
-    setState(() {
-      favoriteLeagueIds = favorites.toSet();
-    });
-  }
-
-  Future<void> toggleFavorite(Map<String, dynamic> league) async {
-    final id = league['id'].toString();
-    final isFavorite = favoriteLeagueIds.contains(id);
-
-    if (isFavorite) {
-      await favoritesService.removeLeague(id);
-    } else {
-      await favoritesService.saveLeague(
-        id: id,
-        name: FootballTranslations.league(
-          league['name'].toString(),
-        ),
-        logo: league['logo'].toString(),
-      );
-    }
-
-    if (!mounted) return;
-
-    setState(() {
-      if (isFavorite) {
-        favoriteLeagueIds.remove(id);
-      } else {
-        favoriteLeagueIds.add(id);
-      }
-    });
-  }
-
   void openLeagueDetails(Map<String, dynamic> league) {
     final id = int.tryParse(league['id'].toString());
 
@@ -249,7 +201,6 @@ class _LeaguesScreenState extends State<LeaguesScreen> {
             ),
           ),
         ),
-
         Padding(
           padding: const EdgeInsets.symmetric(
             horizontal: 16,
@@ -281,7 +232,6 @@ class _LeaguesScreenState extends State<LeaguesScreen> {
             ],
           ),
         ),
-
         Expanded(
           child: items.isEmpty
               ? const Center(
@@ -308,9 +258,6 @@ class _LeaguesScreenState extends State<LeaguesScreen> {
     int index,
     bool isDark,
   ) {
-    final id = league['id'].toString();
-    final isFavorite = favoriteLeagueIds.contains(id);
-
     return Card(
       margin: const EdgeInsets.only(bottom: 9),
       elevation: 1,
@@ -327,11 +274,11 @@ class _LeaguesScreenState extends State<LeaguesScreen> {
           ),
           child: Row(
             children: [
-              Container(
+              SizedBox(
                 width: 27,
-                alignment: Alignment.center,
                 child: Text(
                   '${index + 1}',
+                  textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.bold,
@@ -339,9 +286,7 @@ class _LeaguesScreenState extends State<LeaguesScreen> {
                   ),
                 ),
               ),
-
               const SizedBox(width: 8),
-
               SizedBox(
                 width: 45,
                 height: 45,
@@ -356,9 +301,7 @@ class _LeaguesScreenState extends State<LeaguesScreen> {
                   },
                 ),
               ),
-
               const SizedBox(width: 12),
-
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -385,16 +328,6 @@ class _LeaguesScreenState extends State<LeaguesScreen> {
                   ],
                 ),
               ),
-
-              IconButton(
-                onPressed: () => toggleFavorite(league),
-                tooltip: 'المفضلة',
-                icon: Icon(
-                  isFavorite ? Icons.star : Icons.star_border,
-                  color: isFavorite ? Colors.amber : Colors.grey,
-                ),
-              ),
-
               const Icon(
                 Icons.chevron_left,
                 color: Colors.grey,
