@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'app_constants.dart';
 import 'theme/app_theme.dart';
@@ -9,17 +10,56 @@ import 'standings_screen.dart';
 import 'news_screen.dart';
 import 'favorites_screen.dart';
 import 'settings_screen.dart';
+import 'onboarding_screen.dart';
 
 final ThemeController themeController = ThemeController();
 
+const String onboardingDoneKey = 'rifgoal_onboarding_done';
+
 Future<void> main() async {
 WidgetsFlutterBinding.ensureInitialized();
+
 await themeController.loadTheme();
+
 runApp(const RifGoalApp());
 }
 
-class RifGoalApp extends StatelessWidget {
+class RifGoalApp extends StatefulWidget {
 const RifGoalApp({super.key});
+
+@override
+State<RifGoalApp> createState() => _RifGoalAppState();
+}
+
+class _RifGoalAppState extends State<RifGoalApp> {
+bool? onboardingDone;
+
+@override
+void initState() {
+super.initState();
+_checkOnboarding();
+}
+
+Future<void> _checkOnboarding() async {
+final prefs = await SharedPreferences.getInstance();
+final completed = prefs.getBool(onboardingDoneKey) ?? false;
+
+if (!mounted) return;
+
+setState(() {
+  onboardingDone = completed;
+});
+
+}
+
+Future<void> _finishOnboarding() async {
+if (!mounted) return;
+
+setState(() {
+  onboardingDone = true;
+});
+
+}
 
 @override
 Widget build(BuildContext context) {
@@ -39,7 +79,17 @@ textDirection: TextDirection.rtl,
 child: child!,
 );
 },
-home: const HomeScreen(),
+home: onboardingDone == null
+? const Scaffold(
+body: Center(
+child: CircularProgressIndicator(),
+),
+)
+: onboardingDone!
+? const HomeScreen()
+: OnboardingScreen(
+onFinished: _finishOnboarding,
+),
 );
 },
 );
@@ -73,9 +123,14 @@ const FavoritesScreen(),
 ];
 
 void _navigateTo(int index) {
+if (index == 4) {
+pages[4] = FavoritesScreen(key: UniqueKey());
+}
+
 setState(() {
-selectedIndex = index;
+  selectedIndex = index;
 });
+
 }
 
 @override
