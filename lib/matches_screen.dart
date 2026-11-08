@@ -37,7 +37,6 @@ class _MatchesScreenState extends State<MatchesScreen> {
     'SA': 135,
     'BL1': 78,
     'FL1': 61,
-    'MA': 200,
   };
 
   static const Map<int, int> leaguePriority = {
@@ -47,7 +46,6 @@ class _MatchesScreenState extends State<MatchesScreen> {
     135: 4,
     78: 5,
     61: 6,
-    200: 7,
   };
 
   @override
@@ -56,7 +54,8 @@ class _MatchesScreenState extends State<MatchesScreen> {
 
     _loadMatches();
 
-    // تحديث المباريات تلقائياً كل 60 ثانية.
+    // تحديث البيانات تلقائياً كل 60 ثانية.
+    // Cloudflare يحتفظ بالنتائج لمدة 5 دقائق.
     _refreshTimer = Timer.periodic(
       const Duration(seconds: 60),
       (timer) {
@@ -105,7 +104,6 @@ class _MatchesScreenState extends State<MatchesScreen> {
   }) async {
     if (!mounted) return;
 
-    // رقم جديد لكل طلب لمنع عرض نتائج طلب قديم.
     final currentRequestId = ++_requestId;
 
     final requestedDate = selectedDate;
@@ -123,7 +121,6 @@ class _MatchesScreenState extends State<MatchesScreen> {
         'date': _formatDate(requestedDate),
       };
 
-      // عند اختيار الكل نجلب مباريات جميع البطولات.
       if (requestedCompetition != 'ALL') {
         final leagueId = competitionIds[requestedCompetition];
 
@@ -137,7 +134,9 @@ class _MatchesScreenState extends State<MatchesScreen> {
 
       final endpoint = Uri.parse(
         '${ApiConfig.baseUrl}/api/fixtures',
-      ).replace(queryParameters: parameters);
+      ).replace(
+        queryParameters: parameters,
+      );
 
       final result = await _matchService.fetchMatches(
         endpoint: endpoint,
@@ -153,8 +152,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
     } catch (error) {
       if (!mounted || currentRequestId != _requestId) return;
 
-      // في التحديث التلقائي نحافظ على المباريات
-      // القديمة إذا حدث خطأ مؤقت في الاتصال.
+      // نحافظ على المباريات القديمة عند فشل التحديث التلقائي.
       if (!showLoading && matches.isNotEmpty) {
         debugPrint('RIFGOAL AUTO REFRESH ERROR: $error');
         return;
@@ -181,10 +179,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
 
   @override
   void dispose() {
-    // إيقاف التحديث التلقائي عند مغادرة الشاشة.
     _refreshTimer?.cancel();
-
-    // إلغاء صلاحية أي طلب قديم.
     _requestId++;
 
     _matchService.dispose();
@@ -203,6 +198,8 @@ class _MatchesScreenState extends State<MatchesScreen> {
         DateSelector(
           selectedDate: selectedDate,
           onDateSelected: (date) {
+            if (date == selectedDate) return;
+
             setState(() {
               selectedDate = date;
             });
@@ -216,6 +213,8 @@ class _MatchesScreenState extends State<MatchesScreen> {
         CompetitionSelector(
           selectedCompetition: selectedCompetition,
           onSelected: (competition) {
+            if (competition == selectedCompetition) return;
+
             setState(() {
               selectedCompetition = competition;
             });
