@@ -23,7 +23,6 @@ class _StandingsScreenState extends State<StandingsScreen> {
     'الدوري الإيطالي',
     'الدوري الألماني',
     'الدوري الفرنسي',
-    'البطولة المغربية',
   ];
 
   final Map<String, int> leagueIds = {
@@ -32,7 +31,6 @@ class _StandingsScreenState extends State<StandingsScreen> {
     'الدوري الإيطالي': 135,
     'الدوري الألماني': 78,
     'الدوري الفرنسي': 61,
-    'البطولة المغربية': 200,
   };
 
   List<Standing> standings = [];
@@ -52,6 +50,8 @@ class _StandingsScreenState extends State<StandingsScreen> {
   }
 
   Future<void> _loadStandings() async {
+    if (!mounted) return;
+
     setState(() {
       isLoading = true;
       errorMessage = null;
@@ -109,7 +109,6 @@ class _StandingsScreenState extends State<StandingsScreen> {
       children: [
         const SizedBox(height: 14),
 
-        // اختيار البطولة
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 14),
           child: Container(
@@ -147,7 +146,7 @@ class _StandingsScreenState extends State<StandingsScreen> {
                   );
                 }).toList(),
                 onChanged: (value) {
-                  if (value != null) {
+                  if (value != null && value != selectedLeague) {
                     setState(() {
                       selectedLeague = value;
                     });
@@ -161,7 +160,6 @@ class _StandingsScreenState extends State<StandingsScreen> {
 
         const SizedBox(height: 14),
 
-        // عنوان الجدول
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Row(
@@ -182,7 +180,7 @@ class _StandingsScreenState extends State<StandingsScreen> {
                 ),
               ),
               IconButton(
-                onPressed: _loadStandings,
+                onPressed: isLoading ? null : _loadStandings,
                 tooltip: 'تحديث',
                 icon: const Icon(Icons.refresh_rounded),
               ),
@@ -453,113 +451,4 @@ class _StandingsScreenState extends State<StandingsScreen> {
               title,
               style: const TextStyle(
                 fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              subtitle,
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 13),
-            ),
-            if (showRetry) ...[
-              const SizedBox(height: 15),
-              ElevatedButton.icon(
-                onPressed: _loadStandings,
-                icon: const Icon(Icons.refresh),
-                label: const Text('إعادة المحاولة'),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _HeaderCell extends StatelessWidget {
-  final String text;
-  final double width;
-  final bool alignStart;
-
-  const _HeaderCell(
-    this.text, {
-    required this.width,
-    this.alignStart = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: width,
-      child: Text(
-        text,
-        textAlign: alignStart
-            ? TextAlign.start
-            : TextAlign.center,
-        style: const TextStyle(
-          color: Colors.white,
-          fontWeight: FontWeight.bold,
-          fontSize: 11,
-        ),
-      ),
-    );
-  }
-}
-
-class _DataCell extends StatelessWidget {
-  final String text;
-  final double width;
-
-  const _DataCell(
-    this.text, {
-    required this.width,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: width,
-      child: Text(
-        text,
-        textAlign: TextAlign.center,
-        style: const TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w500,
-        ),
-      ),
-    );
-  }
-}
-
-class _LegendItem extends StatelessWidget {
-  final Color color;
-  final String text;
-
-  const _LegendItem({
-    required this.color,
-    required this.text,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 9,
-          height: 9,
-          decoration: BoxDecoration(
-            color: color,
-            shape: BoxShape.circle,
-          ),
-        ),
-        const SizedBox(width: 6),
-        Text(
-          text,
-          style: const TextStyle(fontSize: 11),
-        ),
-      ],
-    );
-  }
-}
+                fontWeight
