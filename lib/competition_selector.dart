@@ -22,45 +22,56 @@ static const List<Map<String, String>> competitions = [
 
 @override
 Widget build(BuildContext context) {
-final primary = Theme.of(context).colorScheme.primary;
-final isDark = Theme.of(context).brightness == Brightness.dark;
-
 return SizedBox(
-  height: 48,
-  child: ListView.separated(
-    scrollDirection: Axis.horizontal,
-    reverse: true,
-    padding: const EdgeInsets.symmetric(horizontal: 12),
-    itemCount: competitions.length,
-    separatorBuilder: (_, __) => const SizedBox(width: 7),
-    itemBuilder: (context, index) {
-      final competition = competitions[index];
-      final code = competition['code']!;
-      final name = competition['name']!;
-      final active = code == selectedCompetition;
+height: 52,
+child: ListView.separated(
+scrollDirection: Axis.horizontal,
+reverse: true,
+padding: const EdgeInsets.symmetric(
+horizontal: 10,
+vertical: 6,
+),
+itemCount: competitions.length,
+separatorBuilder: (_, __) => const SizedBox(width: 7),
+itemBuilder: (context, index) {
+final competition = competitions[index];
+final code = competition['code']!;
+final name = competition['name']!;
+final active = code == selectedCompetition;
 
       return GestureDetector(
         onTap: () => onSelected(code),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
-          padding: const EdgeInsets.symmetric(horizontal: 16),
+          padding: const EdgeInsets.symmetric(
+            horizontal: 15,
+            vertical: 7,
+          ),
           alignment: Alignment.center,
           decoration: BoxDecoration(
             color: active
-                ? primary
-                : (isDark
-                    ? const Color(0xFF2A2E36)
-                    : const Color(0xFFF1F3F4)),
-            borderRadius: BorderRadius.circular(18),
+                ? const Color(0xFF202B3B)
+                : const Color(0xFFF1F3F7),
+            borderRadius: BorderRadius.circular(7),
+            border: Border(
+              bottom: BorderSide(
+                color: active
+                    ? const Color(0xFFFF9800)
+                    : Colors.transparent,
+                width: 3,
+              ),
+            ),
           ),
           child: Text(
             name,
             style: TextStyle(
               color: active
                   ? Colors.white
-                  : Theme.of(context).colorScheme.onSurfaceVariant,
+                  : const Color(0xFF596575),
               fontSize: 12,
-              fontWeight: FontWeight.w600,
+              fontWeight: active
+                  ? FontWeight.bold
+                  : FontWeight.w500,
             ),
           ),
         ),
