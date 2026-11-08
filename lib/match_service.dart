@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
 import 'match_model.dart';
@@ -14,6 +15,8 @@ class MatchService {
   Future<List<FootballMatch>> fetchMatches({
     required Uri endpoint,
   }) async {
+    debugPrint('RIFGOAL REQUEST: $endpoint');
+
     final response = await _client
         .get(
           endpoint,
@@ -23,29 +26,54 @@ class MatchService {
         )
         .timeout(ApiConfig.timeout);
 
+    debugPrint('RIFGOAL STATUS: ${response.statusCode}');
+
+    final body = utf8.decode(response.bodyBytes);
+
     if (response.statusCode != 200) {
+      debugPrint('RIFGOAL SERVER ERROR: $body');
+
       throw Exception(
-        'تعذر جلب المباريات. رمز الاستجابة: ${response.statusCode}',
+        'خطأ من السيرفر (${response.statusCode}): $body',
       );
     }
 
-    final decoded = jsonDecode(
-      utf8.decode(response.bodyBytes),
-    );
+    dynamic decoded;
+
+    try {
+      decoded = jsonDecode(body);
+    } catch (_) {
+      throw Exception('السيرفر أعاد بيانات غير صالحة.');
+    }
 
     if (decoded is! Map<String, dynamic>) {
       throw Exception('صيغة بيانات المباريات غير صحيحة.');
     }
 
-    if (decoded['errors'] is Map &&
-        (decoded['errors'] as Map).isNotEmpty) {
-      throw Exception('أعاد السيرفر خطأ في طلب المباريات.');
+    final errors = decoded['errors'];
+
+    if (errors is Map && errors.isNotEmpty) {
+      debugPrint('RIFGOAL API ERRORS: $errors');
+
+      throw Exception(
+        'خطأ API: ${errors.values.join(' - ')}',
+      );
     }
 
     final data = decoded['response'];
 
     if (data is! List) {
-      throw Exception('لم يتم العثور على قائمة المباريات.');
+      debugPrint('RIFGOAL INVALID RESPONSE: $decoded');
+
+      throw Exception(
+        'السيرفر لم يُرجع قائمة المباريات بشكل صحيح.',
+      );
+    }
+
+    debugPrint('RIFGOAL MATCHES COUNT: ${data.length}');
+
+    if (data.isEmpty) {
+      return [];
     }
 
     return data
