@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 
 import 'date_selector.dart';
@@ -26,6 +27,9 @@ class _MatchesScreenState extends State<MatchesScreen> {
   bool isLoading = true;
   String? errorMessage;
 
+  Timer? _refreshTimer;
+  int _requestId = 0;
+
   static const Map<String, int> competitionIds = {
     'CL': 2,
     'PL': 39,
@@ -49,7 +53,18 @@ class _MatchesScreenState extends State<MatchesScreen> {
   @override
   void initState() {
     super.initState();
+
     _loadMatches();
+
+    // تحديث المباريات تلقائياً كل 60 ثانية.
+    _refreshTimer = Timer.periodic(
+      const Duration(seconds: 60),
+      (timer) {
+        if (!mounted || isLoading) return;
+
+        _loadMatches(showLoading: false);
+      },
+    );
   }
 
   int _getLeaguePriority(FootballMatch match) {
@@ -85,28 +100,39 @@ class _MatchesScreenState extends State<MatchesScreen> {
     return date.month >= 7 ? date.year : date.year - 1;
   }
 
-  Future<void> _loadMatches() async {
+  Future<void> _loadMatches({
+    bool showLoading = true,
+  }) async {
     if (!mounted) return;
 
-    setState(() {
-      isLoading = true;
-      errorMessage = null;
-    });
+    // رقم جديد لكل طلب لمنع عرض نتائج طلب قديم.
+    final currentRequestId = ++_requestId;
+
+    final requestedDate = selectedDate;
+    final requestedCompetition = selectedCompetition;
+
+    if (showLoading) {
+      setState(() {
+        isLoading = true;
+        errorMessage = null;
+      });
+    }
 
     try {
       final parameters = <String, String>{
-        'date': _formatDate(selectedDate),
+        'date': _formatDate(requestedDate),
       };
 
-      if (selectedCompetition != 'ALL') {
-        final leagueId = competitionIds[selectedCompetition];
+      // عند اختيار الكل نجلب مباريات جميع البطولات.
+      if (requestedCompetition != 'ALL') {
+        final leagueId = competitionIds[requestedCompetition];
 
         if (leagueId == null) {
           throw Exception('رمز البطولة غير معروف.');
         }
 
         parameters['league'] = leagueId.toString();
-        parameters['season'] = _getSeason(selectedDate).toString();
+        parameters['season'] = _getSeason(requestedDate).toString();
       }
 
       final endpoint = Uri.parse(
@@ -117,18 +143,29 @@ class _MatchesScreenState extends State<MatchesScreen> {
         endpoint: endpoint,
       );
 
-      if (!mounted) return;
+      if (!mounted || currentRequestId != _requestId) return;
 
       setState(() {
         matches = _sortMatches(result);
         isLoading = false;
+        errorMessage = null;
       });
     } catch (error) {
-      if (!mounted) return;
+      if (!mounted || currentRequestId != _requestId) return;
+
+      // في التحديث التلقائي نحافظ على المباريات
+      // القديمة إذا حدث خطأ مؤقت في الاتصال.
+      if (!showLoading && matches.isNotEmpty) {
+        debugPrint('RIFGOAL AUTO REFRESH ERROR: $error');
+        return;
+      }
 
       setState(() {
         isLoading = false;
-        errorMessage = error.toString().replaceFirst('Exception: ', '');
+        errorMessage = error.toString().replaceFirst(
+          'Exception: ',
+          '',
+        );
       });
     }
   }
@@ -144,7 +181,14 @@ class _MatchesScreenState extends State<MatchesScreen> {
 
   @override
   void dispose() {
+    // إيقاف التحديث التلقائي عند مغادرة الشاشة.
+    _refreshTimer?.cancel();
+
+    // إلغاء صلاحية أي طلب قديم.
+    _requestId++;
+
     _matchService.dispose();
+
     super.dispose();
   }
 
@@ -155,26 +199,33 @@ class _MatchesScreenState extends State<MatchesScreen> {
     return Column(
       children: [
         const SizedBox(height: 12),
+
         DateSelector(
           selectedDate: selectedDate,
           onDateSelected: (date) {
             setState(() {
               selectedDate = date;
             });
+
             _loadMatches();
           },
         ),
+
         const SizedBox(height: 12),
+
         CompetitionSelector(
           selectedCompetition: selectedCompetition,
           onSelected: (competition) {
             setState(() {
               selectedCompetition = competition;
             });
+
             _loadMatches();
           },
         ),
+
         const SizedBox(height: 12),
+
         Expanded(
           child: _buildMatchesContent(isDark),
         ),
