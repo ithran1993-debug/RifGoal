@@ -22,14 +22,16 @@ class DateSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return SizedBox(
+    return Container(
       height: 82,
+      color: const Color(0xFF2B374A),
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         reverse: true,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
+        padding: const EdgeInsets.symmetric(
+          horizontal: 10,
+          vertical: 9,
+        ),
         itemCount: 15,
         itemBuilder: (context, index) {
           final date = DateTime.now().add(
@@ -45,15 +47,13 @@ class DateSelector extends StatelessWidget {
             onTap: () => onDateSelected(date),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 200),
-              width: 68,
-              margin: const EdgeInsets.only(left: 6),
+              width: 62,
+              margin: const EdgeInsets.symmetric(horizontal: 3),
               decoration: BoxDecoration(
                 color: isSelected
-                    ? Theme.of(context).colorScheme.primary
-                    : (isDark
-                        ? const Color(0xFF2A2E36)
-                        : const Color(0xFFF1F3F4)),
-                borderRadius: BorderRadius.circular(16),
+                    ? Colors.white
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(8),
               ),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -62,22 +62,34 @@ class DateSelector extends StatelessWidget {
                     days[date.weekday - 1],
                     style: TextStyle(
                       fontSize: 11,
+                      fontWeight: isSelected
+                          ? FontWeight.bold
+                          : FontWeight.normal,
                       color: isSelected
-                          ? Colors.white
-                          : (isDark
-                              ? const Color(0xFF9AA0A6)
-                              : const Color(0xFF5F6368)),
+                          ? const Color(0xFF202B3B)
+                          : const Color(0xFFD0D6DF),
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 5),
                   Text(
                     '${date.day}',
                     style: TextStyle(
-                      fontSize: 17,
+                      fontSize: 18,
                       fontWeight: FontWeight.bold,
                       color: isSelected
-                          ? Colors.white
-                          : Theme.of(context).colorScheme.onSurface,
+                          ? const Color(0xFF202B3B)
+                          : Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Container(
+                    height: 3,
+                    width: 25,
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? const Color(0xFFFF9800)
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(5),
                     ),
                   ),
                 ],
