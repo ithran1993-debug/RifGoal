@@ -710,10 +710,14 @@ return Column(
 
 }
 
-String _matchTime(String dateString) {
-final date = DateTime.tryParse(dateString);
+String _matchTime(DateTime date) {
 
-if (date == null) return '--:--';
+String _matchTime(DateTime date) {
+  final localDate = date.toLocal();
+  final hour = localDate.hour.toString().padLeft(2, '0');
+  final minute = localDate.minute.toString().padLeft(2, '0');
+  return '$hour:$minute';
+}
 
 final localDate = date.toLocal();
 
