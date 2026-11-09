@@ -30,13 +30,13 @@ String? errorMessage;
 Timer? _refreshTimer;
 int _requestId = 0;
 
-static const Map<String, int> competitionIds = {
-'CL': 2,
-'PL': 39,
-'PD': 140,
-'SA': 135,
-'BL1': 78,
-'FL1': 61,
+static const Map<String, String> competitionIds = {
+  'CL': 'CL',
+  'PL': 'PL',
+  'PD': 'PD',
+  'SA': 'SA',
+  'BL1': 'BL1',
+  'FL1': 'FL1',
 };
 
 static const Map<int, int> leaguePriority = {
@@ -128,13 +128,13 @@ try {
   };
 
   if (requestedCompetition != 'ALL') {
-    final leagueId = competitionIds[requestedCompetition];
+    final leagueCode = competitionIds[requestedCompetition];
 
-    if (leagueId == null) {
+if (leagueCode == null) {
       throw Exception('رمز البطولة غير معروف.');
     }
 
-    parameters['league'] = leagueId.toString();
+    parameters['league'] = leagueCode;
     parameters['season'] = _getSeason(requestedDate).toString();
   }
 
