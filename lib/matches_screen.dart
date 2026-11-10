@@ -30,6 +30,8 @@ class _MatchesScreenState extends State<MatchesScreen> {
   Timer? _refreshTimer;
   int _requestId = 0;
 
+  final Set<String> _collapsedLeagues = {};
+
   static const Map<String, String> competitionIds = {
     'CL': 'CL',
     'PL': 'PL',
@@ -48,11 +50,15 @@ class _MatchesScreenState extends State<MatchesScreen> {
     61: 6,
   };
 
-  static const Color navy = Color(0xFF202B3B);
-  static const Color orange = Color(0xFFFF9800);
-  static const Color pageBackground = Color(0xFFF1F3F7);
-  static const Color liveColor = Color(0xFFD32F2F);
-  static const Color secondaryText = Color(0xFF7B8492);
+  static const Color navy = Color(0xFF2B394A);
+  static const Color orange = Color(0xFFE67E22);
+  static const Color pageBackground = Color(0xFFF1F3F6);
+  static const Color cardBackground = Colors.white;
+  static const Color textMain = Color(0xFF333333);
+  static const Color secondaryText = Color(0xFF777777);
+  static const Color liveColor = Color(0xFFE74C3C);
+  static const Color breakColor = Color(0xFFF1C40F);
+  static const Color borderColor = Color(0xFFF0F0F0);
 
   @override
   void initState() {
@@ -179,6 +185,16 @@ class _MatchesScreenState extends State<MatchesScreen> {
     );
   }
 
+  void _toggleLeague(String key) {
+    setState(() {
+      if (_collapsedLeagues.contains(key)) {
+        _collapsedLeagues.remove(key);
+      } else {
+        _collapsedLeagues.add(key);
+      }
+    });
+  }
+
   @override
   void dispose() {
     _refreshTimer?.cancel();
@@ -193,6 +209,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
       color: pageBackground,
       child: Column(
         children: [
+          // شريط التاريخ
           DateSelector(
             selectedDate: selectedDate,
             onDateSelected: (date) {
@@ -210,9 +227,10 @@ class _MatchesScreenState extends State<MatchesScreen> {
             },
           ),
 
+          // اختيار البطولات
           Container(
-            color: Colors.white,
-            padding: const EdgeInsets.symmetric(vertical: 8),
+            color: navy,
+            padding: const EdgeInsets.only(bottom: 7),
             child: CompetitionSelector(
               selectedCompetition: selectedCompetition,
               onSelected: (competition) {
@@ -299,17 +317,22 @@ class _MatchesScreenState extends State<MatchesScreen> {
       groupedMatches[key]!.add(match);
     }
 
-    final groups = groupedMatches.values.toList();
+    final groups = groupedMatches.entries.toList();
 
     return RefreshIndicator(
       color: orange,
       onRefresh: _loadMatches,
       child: ListView.builder(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(10, 12, 10, 20),
+        padding: const EdgeInsets.fromLTRB(10, 12, 10, 25),
         itemCount: groups.length,
         itemBuilder: (context, index) {
-          return _buildLeagueCard(groups[index]);
+          final entry = groups[index];
+
+          return _buildLeagueCard(
+            entry.key,
+            entry.value,
+          );
         },
       ),
     );
@@ -368,7 +391,11 @@ class _MatchesScreenState extends State<MatchesScreen> {
     );
   }
 
-  Widget _buildLeagueCard(List<FootballMatch> leagueMatches) {
+  // بطاقة البطولة
+  Widget _buildLeagueCard(
+    String key,
+    List<FootballMatch> leagueMatches,
+  ) {
     if (leagueMatches.isEmpty) {
       return const SizedBox.shrink();
     }
@@ -377,88 +404,104 @@ class _MatchesScreenState extends State<MatchesScreen> {
       leagueMatches.first.leagueName,
     );
 
+    final isCollapsed = _collapsedLeagues.contains(key);
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: const Color(0xFFE5E8ED),
-        ),
+        color: cardBackground,
+        borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.035),
-            blurRadius: 5,
+            color: Colors.black.withOpacity(0.045),
+            blurRadius: 7,
             offset: const Offset(0, 2),
           ),
         ],
       ),
+      clipBehavior: Clip.antiAlias,
       child: Column(
         children: [
-          Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 12,
-              vertical: 12,
-            ),
-            decoration: const BoxDecoration(
-              color: Color(0xFFF9FAFC),
-              borderRadius: BorderRadius.vertical(
-                top: Radius.circular(10),
-              ),
-            ),
-            child: Row(
-              children: [
-                const Icon(
-                  Icons.emoji_events_outlined,
-                  color: orange,
-                  size: 19,
+          Material(
+            color: Colors.white,
+            child: InkWell(
+              onTap: () => _toggleLeague(key),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 15,
+                  vertical: 12,
                 ),
-                const SizedBox(width: 9),
-                Expanded(
-                  child: Text(
-                    leagueName,
-                    style: const TextStyle(
-                      color: navy,
-                      fontSize: 13,
-                      fontWeight: FontWeight.bold,
+                child: Row(
+                  children: [
+                    Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFF5E9),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(
+                        Icons.emoji_events,
+                        color: orange,
+                        size: 20,
+                      ),
                     ),
-                  ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        leagueName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Color(0xFF2C3E50),
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      '${leagueMatches.length} مباريات',
+                      style: const TextStyle(
+                        color: secondaryText,
+                        fontSize: 11,
+                      ),
+                    ),
+                    const SizedBox(width: 7),
+                    Icon(
+                      isCollapsed
+                          ? Icons.keyboard_arrow_down
+                          : Icons.keyboard_arrow_up,
+                      color: orange,
+                      size: 21,
+                    ),
+                  ],
                 ),
-                Text(
-                  '${leagueMatches.length} مباريات',
-                  style: const TextStyle(
-                    color: secondaryText,
-                    fontSize: 11,
-                  ),
-                ),
-                const SizedBox(width: 5),
-                const Icon(
-                  Icons.keyboard_arrow_down,
-                  color: secondaryText,
-                  size: 20,
-                ),
-              ],
+              ),
             ),
           ),
-          const Divider(
-            height: 1,
-            color: Color(0xFFECEFF3),
-          ),
-          for (int i = 0; i < leagueMatches.length; i++) ...[
-            _buildMatchRow(leagueMatches[i]),
-            if (i != leagueMatches.length - 1)
-              const Divider(
-                height: 1,
-                indent: 12,
-                endIndent: 12,
-                color: Color(0xFFECEFF3),
-              ),
+
+          if (!isCollapsed) ...[
+            const Divider(
+              height: 1,
+              color: borderColor,
+            ),
+            for (int i = 0; i < leagueMatches.length; i++) ...[
+              _buildMatchRow(leagueMatches[i]),
+              if (i != leagueMatches.length - 1)
+                const Divider(
+                  height: 1,
+                  indent: 12,
+                  endIndent: 12,
+                  color: borderColor,
+                ),
+            ],
           ],
         ],
       ),
     );
   }
 
+  // صف المباراة
   Widget _buildMatchRow(FootballMatch match) {
     return Material(
       color: Colors.transparent,
@@ -466,8 +509,8 @@ class _MatchesScreenState extends State<MatchesScreen> {
         onTap: () => _openMatchDetails(match),
         child: Padding(
           padding: const EdgeInsets.symmetric(
-            horizontal: 9,
-            vertical: 13,
+            horizontal: 12,
+            vertical: 15,
           ),
           child: Row(
             children: [
@@ -478,10 +521,12 @@ class _MatchesScreenState extends State<MatchesScreen> {
                   isHome: true,
                 ),
               ),
+
               SizedBox(
-                width: 82,
+                width: 100,
                 child: _buildMatchCenter(match),
               ),
+
               Expanded(
                 child: _buildTeamCell(
                   name: match.awayTeam,
@@ -496,6 +541,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
     );
   }
 
+  // شعار واسم الفريق
   Widget _buildTeamCell({
     required String name,
     required String logo,
@@ -506,8 +552,8 @@ class _MatchesScreenState extends State<MatchesScreen> {
         translatedName.isEmpty ? 'غير معروف' : translatedName;
 
     final logoWidget = SizedBox(
-      width: 29,
-      height: 29,
+      width: 30,
+      height: 30,
       child: logo.isEmpty
           ? const Icon(
               Icons.shield_outlined,
@@ -534,9 +580,10 @@ class _MatchesScreenState extends State<MatchesScreen> {
         overflow: TextOverflow.ellipsis,
         textAlign: isHome ? TextAlign.right : TextAlign.left,
         style: const TextStyle(
-          color: Color(0xFF252D38),
-          fontSize: 11,
+          color: textMain,
+          fontSize: 12,
           fontWeight: FontWeight.w600,
+          height: 1.35,
         ),
       ),
     );
@@ -547,40 +594,32 @@ class _MatchesScreenState extends State<MatchesScreen> {
       children: isHome
           ? [
               logoWidget,
-              const SizedBox(width: 5),
+              const SizedBox(width: 6),
               nameWidget,
             ]
           : [
               nameWidget,
-              const SizedBox(width: 5),
+              const SizedBox(width: 6),
               logoWidget,
             ],
     );
   }
 
+  // النتيجة وحالة المباراة
   Widget _buildMatchCenter(FootballMatch match) {
-    final score =
-        '${match.homeScore ?? '-'} : ${match.awayScore ?? '-'}';
+    final homeScore = match.homeScore?.toString() ?? '-';
+    final awayScore = match.awayScore?.toString() ?? '-';
 
     if (match.status == 'HT') {
       return Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            score,
-            style: const TextStyle(
-              color: navy,
-              fontSize: 17,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const Text(
+          _buildScore(homeScore, awayScore),
+          const SizedBox(height: 5),
+          _buildBadge(
             'استراحة',
-            style: TextStyle(
-              color: liveColor,
-              fontSize: 10,
-              fontWeight: FontWeight.bold,
-            ),
+            breakColor,
+            const Color(0xFFB7950B),
           ),
         ],
       );
@@ -590,14 +629,8 @@ class _MatchesScreenState extends State<MatchesScreen> {
       return Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            score,
-            style: const TextStyle(
-              color: navy,
-              fontSize: 17,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
+          _buildScore(homeScore, awayScore),
+          const SizedBox(height: 5),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -609,14 +642,14 @@ class _MatchesScreenState extends State<MatchesScreen> {
                   shape: BoxShape.circle,
                 ),
               ),
-              const SizedBox(width: 4),
+              const SizedBox(width: 5),
               Text(
                 match.elapsed != null
                     ? "${match.elapsed}'"
                     : 'مباشر',
                 style: const TextStyle(
                   color: liveColor,
-                  fontSize: 10,
+                  fontSize: 11,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -630,19 +663,20 @@ class _MatchesScreenState extends State<MatchesScreen> {
       return Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            score,
-            style: const TextStyle(
-              color: navy,
-              fontSize: 17,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
           const Text(
-            'انتهت',
+            'انتهى',
             style: TextStyle(
               color: secondaryText,
               fontSize: 10,
+            ),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            '$homeScore - $awayScore',
+            style: const TextStyle(
+              color: textMain,
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
             ),
           ),
         ],
@@ -657,7 +691,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
         textAlign: TextAlign.center,
         style: const TextStyle(
           color: liveColor,
-          fontSize: 10,
+          fontSize: 11,
           fontWeight: FontWeight.bold,
         ),
       );
@@ -669,30 +703,82 @@ class _MatchesScreenState extends State<MatchesScreen> {
         Text(
           _matchTime(match.date),
           style: const TextStyle(
-            color: navy,
-            fontSize: 16,
+            color: Color(0xFF222222),
+            fontSize: 14,
             fontWeight: FontWeight.bold,
           ),
         ),
-        Container(
-          margin: const EdgeInsets.only(top: 4),
-          padding: const EdgeInsets.symmetric(
-            horizontal: 8,
-            vertical: 3,
-          ),
-          decoration: BoxDecoration(
-            color: const Color(0xFFF0F2F5),
-            borderRadius: BorderRadius.circular(5),
-          ),
-          child: const Text(
-            'لم تبدأ',
-            style: TextStyle(
-              color: secondaryText,
-              fontSize: 9,
-            ),
+        const SizedBox(height: 4),
+        const Text(
+          'لم تبدأ',
+          style: TextStyle(
+            color: secondaryText,
+            fontSize: 10,
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildScore(String home, String away) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Text(
+          home,
+          style: const TextStyle(
+            color: Color(0xFF222222),
+            fontSize: 17,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 7),
+          child: Text(
+            '-',
+            style: TextStyle(
+              color: secondaryText,
+              fontSize: 15,
+            ),
+          ),
+        ),
+        Text(
+          away,
+          style: const TextStyle(
+            color: Color(0xFF222222),
+            fontSize: 17,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildBadge(
+    String text,
+    Color borderColor,
+    Color textColor,
+  ) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: 9,
+        vertical: 3,
+      ),
+      decoration: BoxDecoration(
+        border: Border.all(
+          color: borderColor,
+          width: 1.3,
+        ),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          color: textColor,
+          fontSize: 10,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
     );
   }
 
@@ -700,6 +786,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
     final localDate = date.toLocal();
     final hour = localDate.hour.toString().padLeft(2, '0');
     final minute = localDate.minute.toString().padLeft(2, '0');
+
     return '$hour:$minute';
   }
 
