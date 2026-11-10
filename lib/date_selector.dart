@@ -10,6 +10,9 @@ class DateSelector extends StatelessWidget {
     required this.onDateSelected,
   });
 
+  static const Color navy = Color(0xFF2B394A);
+  static const Color orange = Color(0xFFE67E22);
+
   static const List<String> days = [
     'الإثنين',
     'الثلاثاء',
@@ -19,6 +22,42 @@ class DateSelector extends StatelessWidget {
     'السبت',
     'الأحد',
   ];
+
+  static const List<String> months = [
+    'يناير',
+    'فبراير',
+    'مارس',
+    'أبريل',
+    'مايو',
+    'يونيو',
+    'يوليو',
+    'أغسطس',
+    'سبتمبر',
+    'أكتوبر',
+    'نوفمبر',
+    'ديسمبر',
+  ];
+
+  String _dayLabel(DateTime date) {
+    final today = DateTime.now();
+
+    final selected = DateTime(date.year, date.month, date.day);
+    final current = DateTime(today.year, today.month, today.day);
+
+    if (selected == current) return 'اليوم';
+    if (selected == current.subtract(const Duration(days: 1))) {
+      return 'أمس';
+    }
+    if (selected == current.add(const Duration(days: 1))) {
+      return 'الغد';
+    }
+
+    return days[date.weekday - 1];
+  }
+
+  String _dateLabel(DateTime date) {
+    return '${date.day} ${months[date.month - 1]}';
+  }
 
   Future<void> _openCalendar(BuildContext context) async {
     final pickedDate = await showDatePicker(
@@ -35,10 +74,10 @@ class DateSelector extends StatelessWidget {
           child: Theme(
             data: Theme.of(context).copyWith(
               colorScheme: const ColorScheme.light(
-                primary: Color(0xFFFF9800),
+                primary: orange,
                 onPrimary: Colors.white,
                 surface: Colors.white,
-                onSurface: Color(0xFF202B3B),
+                onSurface: navy,
               ),
             ),
             child: child!,
@@ -55,8 +94,8 @@ class DateSelector extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 82,
-      color: const Color(0xFF2B374A),
+      height: 65,
+      color: navy,
       child: Row(
         children: [
           Expanded(
@@ -64,8 +103,7 @@ class DateSelector extends StatelessWidget {
               scrollDirection: Axis.horizontal,
               reverse: true,
               padding: const EdgeInsets.symmetric(
-                horizontal: 10,
-                vertical: 9,
+                horizontal: 7,
               ),
               itemCount: 15,
               itemBuilder: (context, index) {
@@ -80,53 +118,50 @@ class DateSelector extends StatelessWidget {
 
                 return GestureDetector(
                   onTap: () => onDateSelected(date),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    width: 62,
-                    margin: const EdgeInsets.symmetric(horizontal: 3),
-                    decoration: BoxDecoration(
-                      color: isSelected
-                          ? Colors.white
-                          : Colors.transparent,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                  child: SizedBox(
+                    width: 77,
+                    child: Stack(
+                      alignment: Alignment.bottomCenter,
                       children: [
-                        Text(
-                          days[date.weekday - 1],
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: isSelected
-                                ? FontWeight.bold
-                                : FontWeight.normal,
-                            color: isSelected
-                                ? const Color(0xFF202B3B)
-                                : const Color(0xFFD0D6DF),
-                          ),
+                        Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              _dayLabel(date),
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                                fontWeight: isSelected
+                                    ? FontWeight.bold
+                                    : FontWeight.w500,
+                              ),
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              _dateLabel(date),
+                              style: TextStyle(
+                                color: isSelected
+                                    ? Colors.white
+                                    : const Color(0xFFD1D8E0),
+                                fontSize: 11,
+                                fontWeight: isSelected
+                                    ? FontWeight.bold
+                                    : FontWeight.normal,
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(height: 5),
-                        Text(
-                          '${date.day}',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: isSelected
-                                ? const Color(0xFF202B3B)
-                                : Colors.white,
+                        if (isSelected)
+                          Container(
+                            height: 3,
+                            width: 43,
+                            decoration: const BoxDecoration(
+                              color: orange,
+                              borderRadius: BorderRadius.vertical(
+                                top: Radius.circular(3),
+                              ),
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 4),
-                        Container(
-                          height: 3,
-                          width: 25,
-                          decoration: BoxDecoration(
-                            color: isSelected
-                                ? const Color(0xFFFF9800)
-                                : Colors.transparent,
-                            borderRadius: BorderRadius.circular(5),
-                          ),
-                        ),
                       ],
                     ),
                   ),
@@ -134,14 +169,13 @@ class DateSelector extends StatelessWidget {
               },
             ),
           ),
-
           IconButton(
             onPressed: () => _openCalendar(context),
             tooltip: 'اختيار التاريخ',
             icon: const Icon(
               Icons.calendar_month,
               color: Colors.white,
-              size: 27,
+              size: 24,
             ),
           ),
         ],
