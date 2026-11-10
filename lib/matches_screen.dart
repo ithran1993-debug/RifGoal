@@ -229,8 +229,8 @@ class _MatchesScreenState extends State<MatchesScreen> {
 
           // اختيار البطولات
           Container(
-            color: navy,
-            padding: const EdgeInsets.only(bottom: 7),
+  color: Colors.white,
+  padding: const EdgeInsets.symmetric(vertical: 5),
             child: CompetitionSelector(
               selectedCompetition: selectedCompetition,
               onSelected: (competition) {
