@@ -2,7 +2,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import 'date_selector.dart';
-import 'competition_selector.dart';
 import 'match_service.dart';
 import 'match_model.dart';
 import 'api_config.dart';
@@ -20,7 +19,6 @@ class _MatchesScreenState extends State<MatchesScreen> {
   final MatchService _matchService = MatchService();
 
   DateTime selectedDate = DateTime.now();
-  String selectedCompetition = 'ALL';
 
   List<FootballMatch> matches = [];
 
@@ -32,33 +30,34 @@ class _MatchesScreenState extends State<MatchesScreen> {
 
   final Set<String> _collapsedLeagues = {};
 
-  static const Map<String, String> competitionIds = {
-    'CL': 'CL',
-    'PL': 'PL',
-    'PD': 'PD',
-    'SA': 'SA',
-    'BL1': 'BL1',
-    'FL1': 'FL1',
-  };
-
-  static const Map<int, int> leaguePriority = {
-    2: 1,
-    39: 2,
-    140: 3,
-    135: 4,
-    78: 5,
-    61: 6,
-  };
-
-  static const Color navy = Color(0xFF2B394A);
-  static const Color orange = Color(0xFFE67E22);
-  static const Color pageBackground = Color(0xFFF1F3F6);
+  // ألوان التصميم
+  static const Color navy = Color(0xFF37474F);
+  static const Color orange = Color(0xFFFF9800);
+  static const Color liveColor = Color(0xFFE53935);
+  static const Color breakColor = Color(0xFFF57C00);
+  static const Color pageBackground = Color(0xFFEBF0F5);
   static const Color cardBackground = Colors.white;
-  static const Color textMain = Color(0xFF333333);
-  static const Color secondaryText = Color(0xFF777777);
-  static const Color liveColor = Color(0xFFE74C3C);
-  static const Color breakColor = Color(0xFFF1C40F);
-  static const Color borderColor = Color(0xFFF0F0F0);
+  static const Color textColor = Color(0xFF263238);
+  static const Color secondaryText = Color(0xFF78909C);
+  static const Color dividerColor = Color(0xFFECEFF1);
+
+  bool get isDark =>
+      Theme.of(context).brightness == Brightness.dark;
+
+  Color get backgroundColor =>
+      isDark ? const Color(0xFF0F1115) : pageBackground;
+
+  Color get cardColor =>
+      isDark ? const Color(0xFF161B22) : cardBackground;
+
+  Color get mainTextColor =>
+      isDark ? const Color(0xFFE6EDF3) : textColor;
+
+  Color get mutedTextColor =>
+      isDark ? const Color(0xFF8B949E) : secondaryText;
+
+  Color get lineColor =>
+      isDark ? const Color(0xFF30363D) : dividerColor;
 
   @override
   void initState() {
@@ -75,16 +74,32 @@ class _MatchesScreenState extends State<MatchesScreen> {
     );
   }
 
-  int _getLeaguePriority(FootballMatch match) {
-    return leaguePriority[match.leagueId] ?? 100;
+  String _formatDate(DateTime date) {
+    final year = date.year.toString();
+    final month = date.month.toString().padLeft(2, '0');
+    final day = date.day.toString().padLeft(2, '0');
+
+    return '$year-$month-$day';
   }
+
+  static const Map<int, int> leaguePriority = {
+    2: 1,
+    39: 2,
+    140: 3,
+    135: 4,
+    78: 5,
+    61: 6,
+  };
 
   List<FootballMatch> _sortMatches(List<FootballMatch> list) {
     final sorted = List<FootballMatch>.from(list);
 
     sorted.sort((a, b) {
+      final priorityA = leaguePriority[a.leagueId] ?? 100;
+      final priorityB = leaguePriority[b.leagueId] ?? 100;
+
       final priorityComparison =
-          _getLeaguePriority(a).compareTo(_getLeaguePriority(b));
+          priorityA.compareTo(priorityB);
 
       if (priorityComparison != 0) {
         return priorityComparison;
@@ -96,27 +111,13 @@ class _MatchesScreenState extends State<MatchesScreen> {
     return sorted;
   }
 
-  String _formatDate(DateTime date) {
-    final year = date.year.toString();
-    final month = date.month.toString().padLeft(2, '0');
-    final day = date.day.toString().padLeft(2, '0');
-
-    return '$year-$month-$day';
-  }
-
-  int _getSeason(DateTime date) {
-    return date.month >= 7 ? date.year : date.year - 1;
-  }
-
   Future<void> _loadMatches({
     bool showLoading = true,
   }) async {
     if (!mounted) return;
 
     final currentRequestId = ++_requestId;
-
     final requestedDate = selectedDate;
-    final requestedCompetition = selectedCompetition;
 
     if (showLoading) {
       setState(() {
@@ -126,25 +127,12 @@ class _MatchesScreenState extends State<MatchesScreen> {
     }
 
     try {
-      final parameters = <String, String>{
-        'date': _formatDate(requestedDate),
-      };
-
-      if (requestedCompetition != 'ALL') {
-        final leagueCode = competitionIds[requestedCompetition];
-
-        if (leagueCode == null) {
-          throw Exception('رمز البطولة غير معروف.');
-        }
-
-        parameters['league'] = leagueCode;
-        parameters['season'] = _getSeason(requestedDate).toString();
-      }
-
       final endpoint = Uri.parse(
         '${ApiConfig.baseUrl}/api/fixtures',
       ).replace(
-        queryParameters: parameters,
+        queryParameters: {
+          'date': _formatDate(requestedDate),
+        },
       );
 
       final result = await _matchService.fetchMatches(
@@ -206,10 +194,9 @@ class _MatchesScreenState extends State<MatchesScreen> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: pageBackground,
+      color: backgroundColor,
       child: Column(
         children: [
-          // شريط التاريخ
           DateSelector(
             selectedDate: selectedDate,
             onDateSelected: (date) {
@@ -227,24 +214,6 @@ class _MatchesScreenState extends State<MatchesScreen> {
             },
           ),
 
-          // اختيار البطولات
-          Container(
-  color: Colors.white,
-  padding: const EdgeInsets.symmetric(vertical: 5),
-            child: CompetitionSelector(
-              selectedCompetition: selectedCompetition,
-              onSelected: (competition) {
-                if (competition == selectedCompetition) return;
-
-                setState(() {
-                  selectedCompetition = competition;
-                });
-
-                _loadMatches();
-              },
-            ),
-          ),
-
           Expanded(
             child: _buildMatchesContent(),
           ),
@@ -255,7 +224,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
 
   Widget _buildMatchesContent() {
     if (isLoading) {
-      return const Center(
+      return Center(
         child: CircularProgressIndicator(
           color: orange,
         ),
@@ -277,30 +246,30 @@ class _MatchesScreenState extends State<MatchesScreen> {
         onRefresh: _loadMatches,
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
-          children: const [
-            SizedBox(height: 100),
+          children: [
+            const SizedBox(height: 100),
             Icon(
               Icons.sports_soccer_outlined,
               size: 65,
-              color: secondaryText,
+              color: mutedTextColor,
             ),
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
             Center(
               child: Text(
                 'لا توجد مباريات في هذا اليوم',
                 style: TextStyle(
                   fontSize: 17,
                   fontWeight: FontWeight.bold,
-                  color: navy,
+                  color: mainTextColor,
                 ),
               ),
             ),
-            SizedBox(height: 8),
+            const SizedBox(height: 8),
             Center(
               child: Text(
                 'اسحب للأسفل لتحديث النتائج',
                 style: TextStyle(
-                  color: secondaryText,
+                  color: mutedTextColor,
                 ),
               ),
             ),
@@ -313,6 +282,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
 
     for (final match in matches) {
       final key = '${match.leagueId}_${match.leagueName}';
+
       groupedMatches.putIfAbsent(key, () => []);
       groupedMatches[key]!.add(match);
     }
@@ -358,18 +328,18 @@ class _MatchesScreenState extends State<MatchesScreen> {
             const SizedBox(height: 16),
             Text(
               title,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
-                color: navy,
+                color: mainTextColor,
               ),
             ),
             const SizedBox(height: 8),
             Text(
               subtitle,
               textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: secondaryText,
+              style: TextStyle(
+                color: mutedTextColor,
                 fontSize: 13,
               ),
             ),
@@ -409,11 +379,11 @@ class _MatchesScreenState extends State<MatchesScreen> {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: cardBackground,
-        borderRadius: BorderRadius.circular(12),
+        color: cardColor,
+        borderRadius: BorderRadius.circular(10),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.045),
+            color: Colors.black.withOpacity(isDark ? 0.12 : 0.045),
             blurRadius: 7,
             offset: const Offset(0, 2),
           ),
@@ -423,25 +393,25 @@ class _MatchesScreenState extends State<MatchesScreen> {
       child: Column(
         children: [
           Material(
-            color: Colors.white,
+            color: cardColor,
             child: InkWell(
               onTap: () => _toggleLeague(key),
               child: Padding(
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 15,
+                  horizontal: 13,
                   vertical: 12,
                 ),
                 child: Row(
                   children: [
                     Container(
-                      width: 32,
-                      height: 32,
+                      width: 33,
+                      height: 33,
                       decoration: BoxDecoration(
-                        color: const Color(0xFFFFF5E9),
+                        color: orange.withOpacity(0.12),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: const Icon(
-                        Icons.emoji_events,
+                        Icons.emoji_events_rounded,
                         color: orange,
                         size: 20,
                       ),
@@ -452,8 +422,8 @@ class _MatchesScreenState extends State<MatchesScreen> {
                         leagueName,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Color(0xFF2C3E50),
+                        style: TextStyle(
+                          color: mainTextColor,
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
                         ),
@@ -461,8 +431,8 @@ class _MatchesScreenState extends State<MatchesScreen> {
                     ),
                     Text(
                       '${leagueMatches.length} مباريات',
-                      style: const TextStyle(
-                        color: secondaryText,
+                      style: TextStyle(
+                        color: mutedTextColor,
                         fontSize: 11,
                       ),
                     ),
@@ -472,7 +442,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
                           ? Icons.keyboard_arrow_down
                           : Icons.keyboard_arrow_up,
                       color: orange,
-                      size: 21,
+                      size: 22,
                     ),
                   ],
                 ),
@@ -481,18 +451,18 @@ class _MatchesScreenState extends State<MatchesScreen> {
           ),
 
           if (!isCollapsed) ...[
-            const Divider(
+            Divider(
               height: 1,
-              color: borderColor,
+              color: lineColor,
             ),
             for (int i = 0; i < leagueMatches.length; i++) ...[
               _buildMatchRow(leagueMatches[i]),
               if (i != leagueMatches.length - 1)
-                const Divider(
+                Divider(
                   height: 1,
                   indent: 12,
                   endIndent: 12,
-                  color: borderColor,
+                  color: lineColor,
                 ),
             ],
           ],
@@ -509,8 +479,8 @@ class _MatchesScreenState extends State<MatchesScreen> {
         onTap: () => _openMatchDetails(match),
         child: Padding(
           padding: const EdgeInsets.symmetric(
-            horizontal: 12,
-            vertical: 15,
+            horizontal: 10,
+            vertical: 11,
           ),
           child: Row(
             children: [
@@ -523,7 +493,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
               ),
 
               SizedBox(
-                width: 100,
+                width: 88,
                 child: _buildMatchCenter(match),
               ),
 
@@ -552,22 +522,22 @@ class _MatchesScreenState extends State<MatchesScreen> {
         translatedName.isEmpty ? 'غير معروف' : translatedName;
 
     final logoWidget = SizedBox(
-      width: 30,
-      height: 30,
+      width: 29,
+      height: 29,
       child: logo.isEmpty
-          ? const Icon(
+          ? Icon(
               Icons.shield_outlined,
               size: 25,
-              color: secondaryText,
+              color: mutedTextColor,
             )
           : Image.network(
               logo,
               fit: BoxFit.contain,
               errorBuilder: (context, error, stackTrace) {
-                return const Icon(
+                return Icon(
                   Icons.shield_outlined,
                   size: 25,
-                  color: secondaryText,
+                  color: mutedTextColor,
                 );
               },
             ),
@@ -579,8 +549,8 @@ class _MatchesScreenState extends State<MatchesScreen> {
         maxLines: 2,
         overflow: TextOverflow.ellipsis,
         textAlign: isHome ? TextAlign.right : TextAlign.left,
-        style: const TextStyle(
-          color: textMain,
+        style: TextStyle(
+          color: mainTextColor,
           fontSize: 12,
           fontWeight: FontWeight.w600,
           height: 1.35,
@@ -594,12 +564,12 @@ class _MatchesScreenState extends State<MatchesScreen> {
       children: isHome
           ? [
               logoWidget,
-              const SizedBox(width: 6),
+              const SizedBox(width: 5),
               nameWidget,
             ]
           : [
               nameWidget,
-              const SizedBox(width: 6),
+              const SizedBox(width: 5),
               logoWidget,
             ],
     );
@@ -619,7 +589,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
           _buildBadge(
             'استراحة',
             breakColor,
-            const Color(0xFFB7950B),
+            breakColor,
           ),
         ],
       );
@@ -631,30 +601,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
         children: [
           _buildScore(homeScore, awayScore),
           const SizedBox(height: 5),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                width: 6,
-                height: 6,
-                decoration: const BoxDecoration(
-                  color: liveColor,
-                  shape: BoxShape.circle,
-                ),
-              ),
-              const SizedBox(width: 5),
-              Text(
-                match.elapsed != null
-                    ? "${match.elapsed}'"
-                    : 'مباشر',
-                style: const TextStyle(
-                  color: liveColor,
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
+          _buildLiveCircle(match.elapsed),
         ],
       );
     }
@@ -663,22 +610,15 @@ class _MatchesScreenState extends State<MatchesScreen> {
       return Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Text(
+          Text(
             'انتهى',
             style: TextStyle(
-              color: secondaryText,
+              color: mutedTextColor,
               fontSize: 10,
             ),
           ),
           const SizedBox(height: 3),
-          Text(
-            '$homeScore - $awayScore',
-            style: const TextStyle(
-              color: textMain,
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
+          _buildScore(homeScore, awayScore),
         ],
       );
     }
@@ -702,17 +642,17 @@ class _MatchesScreenState extends State<MatchesScreen> {
       children: [
         Text(
           _matchTime(match.date),
-          style: const TextStyle(
-            color: Color(0xFF222222),
+          style: TextStyle(
+            color: mainTextColor,
             fontSize: 14,
             fontWeight: FontWeight.bold,
           ),
         ),
         const SizedBox(height: 4),
-        const Text(
+        Text(
           'لم تبدأ',
           style: TextStyle(
-            color: secondaryText,
+            color: mutedTextColor,
             fontSize: 10,
           ),
         ),
@@ -720,32 +660,73 @@ class _MatchesScreenState extends State<MatchesScreen> {
     );
   }
 
+  // دائرة الدقيقة للمباراة المباشرة
+  Widget _buildLiveCircle(int? elapsed) {
+    final minute = elapsed != null ? "$elapsed'" : 'مباشر';
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 43,
+          height: 43,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: liveColor,
+              width: 1.4,
+            ),
+          ),
+          child: Text(
+            minute,
+            style: const TextStyle(
+              color: liveColor,
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+        const SizedBox(height: 3),
+        Container(
+          width: 5,
+          height: 5,
+          decoration: const BoxDecoration(
+            color: liveColor,
+            shape: BoxShape.circle,
+          ),
+        ),
+      ],
+    );
+  }
+
+  // النتيجة
   Widget _buildScore(String home, String away) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         Text(
           home,
-          style: const TextStyle(
-            color: Color(0xFF222222),
+          style: TextStyle(
+            color: mainTextColor,
             fontSize: 17,
             fontWeight: FontWeight.bold,
           ),
         ),
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 7),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 6),
           child: Text(
             '-',
             style: TextStyle(
-              color: secondaryText,
+              color: mutedTextColor,
               fontSize: 15,
             ),
           ),
         ),
         Text(
           away,
-          style: const TextStyle(
-            color: Color(0xFF222222),
+          style: TextStyle(
+            color: mainTextColor,
             fontSize: 17,
             fontWeight: FontWeight.bold,
           ),
@@ -754,6 +735,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
     );
   }
 
+  // شارة الحالة
   Widget _buildBadge(
     String text,
     Color borderColor,
@@ -767,7 +749,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
       decoration: BoxDecoration(
         border: Border.all(
           color: borderColor,
-          width: 1.3,
+          width: 1.2,
         ),
         borderRadius: BorderRadius.circular(20),
       ),
