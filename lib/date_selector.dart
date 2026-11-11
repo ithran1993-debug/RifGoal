@@ -10,8 +10,8 @@ class DateSelector extends StatelessWidget {
     required this.onDateSelected,
   });
 
-  static const Color navy = Color(0xFF2B394A);
-  static const Color orange = Color(0xFFE67E22);
+  static const Color navy = Color(0xFF37474F);
+  static const Color orange = Color(0xFFFF9800);
 
   static const List<String> days = [
     'الإثنين',
@@ -38,17 +38,31 @@ class DateSelector extends StatelessWidget {
     'ديسمبر',
   ];
 
+  bool _sameDay(DateTime a, DateTime b) {
+    return a.year == b.year &&
+        a.month == b.month &&
+        a.day == b.day;
+  }
+
   String _dayLabel(DateTime date) {
     final today = DateTime.now();
 
     final selected = DateTime(date.year, date.month, date.day);
     final current = DateTime(today.year, today.month, today.day);
 
-    if (selected == current) return 'اليوم';
-    if (selected == current.subtract(const Duration(days: 1))) {
+    if (_sameDay(selected, current)) return 'اليوم';
+
+    if (_sameDay(
+      selected,
+      current.subtract(const Duration(days: 1)),
+    )) {
       return 'أمس';
     }
-    if (selected == current.add(const Duration(days: 1))) {
+
+    if (_sameDay(
+      selected,
+      current.add(const Duration(days: 1)),
+    )) {
       return 'الغد';
     }
 
@@ -60,6 +74,9 @@ class DateSelector extends StatelessWidget {
   }
 
   Future<void> _openCalendar(BuildContext context) async {
+    final isDark =
+        Theme.of(context).brightness == Brightness.dark;
+
     final pickedDate = await showDatePicker(
       context: context,
       initialDate: selectedDate,
@@ -73,11 +90,13 @@ class DateSelector extends StatelessWidget {
           textDirection: TextDirection.rtl,
           child: Theme(
             data: Theme.of(context).copyWith(
-              colorScheme: const ColorScheme.light(
+              colorScheme: ColorScheme.fromSeed(
+                seedColor: orange,
+                brightness:
+                    isDark ? Brightness.dark : Brightness.light,
+              ).copyWith(
                 primary: orange,
                 onPrimary: Colors.white,
-                surface: Colors.white,
-                onSurface: navy,
               ),
             ),
             child: child!,
@@ -94,7 +113,7 @@ class DateSelector extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 65,
+      height: 68,
       color: navy,
       child: Row(
         children: [
@@ -103,28 +122,34 @@ class DateSelector extends StatelessWidget {
               scrollDirection: Axis.horizontal,
               reverse: true,
               padding: const EdgeInsets.symmetric(
-                horizontal: 7,
+                horizontal: 5,
               ),
               itemCount: 15,
               itemBuilder: (context, index) {
-                final date = DateTime.now().add(
-                  Duration(days: index - 7),
+                final today = DateTime.now();
+
+                final date = DateTime(
+                  today.year,
+                  today.month,
+                  today.day,
+                ).add(Duration(days: index - 7));
+
+                final isSelected = _sameDay(
+                  date,
+                  selectedDate,
                 );
 
-                final isSelected =
-                    date.year == selectedDate.year &&
-                    date.month == selectedDate.month &&
-                    date.day == selectedDate.day;
-
                 return GestureDetector(
+                  behavior: HitTestBehavior.opaque,
                   onTap: () => onDateSelected(date),
                   child: SizedBox(
-                    width: 77,
+                    width: 76,
                     child: Stack(
                       alignment: Alignment.bottomCenter,
                       children: [
                         Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
+                          mainAxisAlignment:
+                              MainAxisAlignment.center,
                           children: [
                             Text(
                               _dayLabel(date),
@@ -136,13 +161,13 @@ class DateSelector extends StatelessWidget {
                                     : FontWeight.w500,
                               ),
                             ),
-                            const SizedBox(height: 3),
+                            const SizedBox(height: 5),
                             Text(
                               _dateLabel(date),
                               style: TextStyle(
                                 color: isSelected
                                     ? Colors.white
-                                    : const Color(0xFFD1D8E0),
+                                    : const Color(0xFFCFD8DC),
                                 fontSize: 11,
                                 fontWeight: isSelected
                                     ? FontWeight.bold
@@ -169,13 +194,18 @@ class DateSelector extends StatelessWidget {
               },
             ),
           ),
+          Container(
+            width: 1,
+            height: 35,
+            color: Colors.white.withOpacity(0.15),
+          ),
           IconButton(
             onPressed: () => _openCalendar(context),
             tooltip: 'اختيار التاريخ',
             icon: const Icon(
-              Icons.calendar_month,
+              Icons.calendar_month_rounded,
               color: Colors.white,
-              size: 24,
+              size: 23,
             ),
           ),
         ],
