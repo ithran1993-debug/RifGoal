@@ -1,6 +1,8 @@
 class ApiConfig {
   static const String baseUrl =
-      'https://rifgoal-proxy.ithran1993.workers.dev';
+      'https://ithran1993-debug.github.io/rifkoora';
+
+  static const String matchesEndpoint = '$baseUrl/app_data.json';
 
   static const Duration timeout =
       Duration(seconds: 30);
