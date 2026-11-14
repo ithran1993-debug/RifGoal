@@ -128,10 +128,10 @@ class _MatchesScreenState extends State<MatchesScreen> {
 
     try {
       final endpoint = Uri.parse(
-        '${ApiConfig.baseUrl}/api/fixtures',
+        ApiConfig.matchesEndpoint,
       ).replace(
         queryParameters: {
-          'date': _formatDate(requestedDate),
+          't': DateTime.now().millisecondsSinceEpoch.toString(),
         },
       );
 
@@ -141,8 +141,14 @@ class _MatchesScreenState extends State<MatchesScreen> {
 
       if (!mounted || currentRequestId != _requestId) return;
 
+      final targetDateStr = _formatDate(requestedDate);
+      final filteredByDate = result.where((m) {
+        final matchDateStr = _formatDate(m.date.toLocal());
+        return matchDateStr == targetDateStr;
+      }).toList();
+
       setState(() {
-        matches = _sortMatches(result);
+        matches = _sortMatches(filteredByDate);
         isLoading = false;
         errorMessage = null;
       });
