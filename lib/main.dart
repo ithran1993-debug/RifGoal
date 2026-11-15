@@ -48,33 +48,204 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
   bool _isLoading = true;
   String? _errorMsg;
   Timer? _autoRefreshTimer;
+  Timer? _secondTickTimer;
+  Timer? _liveDetailsTimer;
 
   Map<String, dynamic> _settings = {'siteTitle': 'ريف جول', 'announcement': ''};
   List<dynamic> _leagues = [];
-  List<dynamic> _matches = [];
+  List> _matches = [];
   Map<String, dynamic> _standings = {};
+  Map<String, dynamic> _topScorers = {};
   List<dynamic> _news = [];
 
   late String _selectedLocalDate;
+  late String _lastTodayIso;
   bool _liveOnly = false;
   String? _selectedStandingLeague;
+  String? _selectedScorerLeague;
 
   @override
   void initState() {
     super.initState();
-    _selectedLocalDate = _toLocalIsoDate(DateTime.now());
+    _lastTodayIso = _toLocalIsoDate(DateTime.now());
+    _selectedLocalDate = _lastTodayIso;
     _fetchAppData();
-    // تحديث صامت كل 60 ثانية لرصد الأهداف والنتائج المباشرة
+
+    // 1. تحديث القائمة المعتمدة من GitHub كل 60 ثانية
     _autoRefreshTimer = Timer.periodic(
       const Duration(seconds: 60),
       (_) => _fetchAppData(silent: true),
+    );
+
+    // 2. عدّاد لحظي كل 1 ثانية لتحريك الدقائق الحية وتجديد شريط الأيام عند منتصف الليل
+    _secondTickTimer = Timer.periodic(
+      const Duration(seconds: 1),
+      (_) => _onSecondTick(),
+    );
+
+    // 3. تحديث فوري للأهداف والنتائج والتفاصيل من FotMob كل 15 ثانية للمباريات الجارية
+    _liveDetailsTimer = Timer.periodic(
+      const Duration(seconds: 15),
+      (_) => _pollLiveMatchesFromFotMob(),
     );
   }
 
   @override
   void dispose() {
     _autoRefreshTimer?.cancel();
+    _secondTickTimer?.cancel();
+    _liveDetailsTimer?.cancel();
     super.dispose();
+  }
+
+  void _onSecondTick() {
+    if (!mounted) return;
+    final now = DateTime.now();
+    final todayIso = _toLocalIsoDate(now);
+    bool needsRebuild = false;
+
+    // تجديد شريط الأيام تلقائياً عند دخول يوم جديد
+    if (todayIso != _lastTodayIso) {
+      _lastTodayIso = todayIso;
+      _selectedLocalDate = todayIso;
+      needsRebuild = true;
+    }
+
+    // تفعيل حالة LIVE تلقائياً عند حلول موعد المباراة + تحديث الدقائق الحية
+    final nowUtc = now.toUtc();
+    for (final m in _matches) {
+      final status = m['status']?.toString() ?? 'NS';
+      if (status == 'NS' && m['timestamp'] != null) {
+        final ts = m['timestamp'].toString();
+        final start = DateTime.tryParse(ts.endsWith('Z') ? ts : '${ts}Z');
+        if (start != null &&
+            nowUtc.isAfter(start) &&
+            nowUtc.difference(start).inHours < 2) {
+          m['status'] = 'LIVE';
+          m['scoreHome'] ??= 0;
+          m['scoreAway'] ??= 0;
+          needsRebuild = true;
+        }
+      } else if (['LIVE', '1H', '2H', 'HT'].contains(status)) {
+        needsRebuild = true;
+      }
+    }
+
+    if (needsRebuild) {
+      setState(() {});
+    }
+  }
+
+  String _computeLiveMinute(Map<String, dynamic> m) {
+    final rawMin = (m['minute'] ?? '').toString();
+    if (rawMin.contains('+')) return rawMin;
+
+    final ts = (m['timestamp'] ?? '').toString();
+    if (ts.isEmpty) return rawMin.isNotEmpty ? rawMin : 'مباشر';
+
+    final start = DateTime.tryParse(ts.endsWith('Z') ? ts : '${ts}Z');
+    if (start == null) return rawMin.isNotEmpty ? rawMin : 'مباشر';
+
+    final diffMin = DateTime.now().toUtc().difference(start).inMinutes;
+    if (diffMin < 0) return 'لم تبدأ';
+    if (diffMin <= 45) return "${diffMin < 1 ? 1 : diffMin}'";
+    if (diffMin <= 60) return 'استراحة';
+
+    final secondHalf = diffMin - 15;
+    if (secondHalf <= 90) return "$secondHalf'";
+    if (secondHalf <= 105) return "90+${secondHalf - 90}'";
+    return rawMin.isNotEmpty ? rawMin : 'مباشر';
+  }
+
+  Future<void> _fetchSingleMatchDetails(Map<String, dynamic> m) async {
+    final id = m['id']?.toString();
+    if (id == null || id.isEmpty) return;
+
+    try {
+      final uri = Uri.parse(
+        'https://www.fotmob.com/api/matchDetails?matchId=$id&ccode3=MAR',
+      );
+      final res = await http.get(uri, headers: {
+        'Accept-Language': 'ar-MA,ar;q=0.9',
+        'Cookie': 'fotmob_lang=ar; ccode3=MAR',
+      }).timeout(const Duration(seconds: 10));
+
+      if (res.statusCode != 200) return;
+      final json = jsonDecode(utf8.decode(res.bodyBytes));
+      final header = json['header'] ?? {};
+      final teams = (header['teams'] as List?) ?? [];
+      final statusObj = header['status'] ?? {};
+
+      if (teams.length >= 2) {
+        m['scoreHome'] = teams[0]['score'] ?? m['scoreHome'] ?? 0;
+        m['scoreAway'] = teams[1]['score'] ?? m['scoreAway'] ?? 0;
+        m['status'] = statusObj['finished'] == true
+            ? 'FT'
+            : (statusObj['started'] == true ? 'LIVE' : m['status']);
+        m['minute'] = statusObj['liveTime']?['short'] ?? m['minute'];
+      }
+
+      final content = json['content'] ?? {};
+      final rawEvents =
+          (content['matchFacts']?['events']?['events'] as List?) ?? [];
+      final infoBox = content['matchFacts']?['infoBox'] ?? {};
+      final topStats =
+          (content['stats']?['Periods']?['All']?['stats'] as List?) ?? [];
+      final statsItems =
+          topStats.isNotEmpty ? ((topStats[0]['stats'] as List?) ?? []) : [];
+      final lineup = content['lineup'] ?? {};
+
+      final stadiumName = infoBox['Stadium']?['name']?.toString() ?? '';
+      if (stadiumName.isNotEmpty) m['stadium'] = stadiumName;
+
+      m['details'] = {
+        'stadium': stadiumName,
+        'referee': infoBox['Referee']?['text']?.toString() ?? '',
+        'events': rawEvents
+            .where((e) => e['type'] == 'Goal' || e['type'] == 'Card')
+            .map((e) => {
+                  'time': e['timeStr'] ?? "${e['time']}'",
+                  'type': e['type'] == 'Goal'
+                      ? 'goal'
+                      : (e['card'] == 'Red' ? 'red_card' : 'yellow_card'),
+                  'player': e['player']?['name'] ?? e['nameStr'] ?? '',
+                  'isHome': e['isHome'] == true,
+                })
+            .toList(),
+        'stats': statsItems
+            .map((s) => {
+                  'title': s['title'] ?? '',
+                  'home': (s['stats'] as List?)?[0] ?? '',
+                  'away': (s['stats'] as List?)?[1] ?? '',
+                })
+            .toList(),
+        'lineups': {
+          'home': ((lineup['homeTeam']?['starters'] as List?) ?? [])
+              .map((p) => {'number': p['shirtNumber'], 'name': p['name']})
+              .toList(),
+          'away': ((lineup['awayTeam']?['starters'] as List?) ?? [])
+              .map((p) => {'number': p['shirtNumber'], 'name': p['name']})
+              .toList(),
+        }
+      };
+    } catch (_) {}
+  }
+
+  Future<void> _pollLiveMatchesFromFotMob() async {
+    final todayIso = _toLocalIsoDate(DateTime.now());
+    final liveList = _matches
+        .where((m) =>
+            _getLocalMatchDate(m) == todayIso &&
+            ['LIVE', '1H', '2H', 'HT'].contains(m['status']))
+        .take(15)
+        .toList();
+
+    if (liveList.isEmpty) return;
+
+    for (final m in liveList) {
+      await _fetchSingleMatchDetails(m);
+    }
+    if (mounted) setState(() {});
   }
 
   String _toLocalIsoDate(DateTime dt) {
@@ -88,7 +259,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
   String _getLocalMatchDate(Map<String, dynamic> match) {
     final ts = match['timestamp']?.toString();
     if (ts != null && ts.isNotEmpty) {
-      final parsed = DateTime.tryParse(ts);
+      final parsed = DateTime.tryParse(ts.endsWith('Z') ? ts : '${ts}Z');
       if (parsed != null) return _toLocalIsoDate(parsed);
     }
     return match['date']?.toString() ?? _selectedLocalDate;
@@ -97,7 +268,8 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
   String _getLocalMatchTime(Map<String, dynamic> match) {
     final ts = match['timestamp']?.toString();
     if (ts != null && ts.isNotEmpty) {
-      final parsed = DateTime.tryParse(ts)?.toLocal();
+      final parsed =
+          DateTime.tryParse(ts.endsWith('Z') ? ts : '${ts}Z')?.toLocal();
       if (parsed != null) {
         final h = parsed.hour.toString().padLeft(2, '0');
         final m = parsed.minute.toString().padLeft(2, '0');
@@ -122,11 +294,15 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
       if (response.statusCode == 200) {
         final decoded = jsonDecode(utf8.decode(response.bodyBytes));
         if (!mounted) return;
+        final rawMatches = (decoded['matches'] as List?) ?? [];
         setState(() {
           _settings = Map<String, dynamic>.from(decoded['settings'] ?? _settings);
           _leagues = List<dynamic>.from(decoded['leagues'] ?? []);
-          _matches = List<dynamic>.from(decoded['matches'] ?? []);
+          _matches = rawMatches
+              .map((e) => Map<String, dynamic>.from(e as Map))
+              .toList();
           _standings = Map<String, dynamic>.from(decoded['standings'] ?? {});
+          _topScorers = Map<String, dynamic>.from(decoded['topScorers'] ?? {});
           _news = List<dynamic>.from(decoded['news'] ?? []);
 
           if (_standings.isNotEmpty &&
@@ -134,8 +310,15 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
                   !_standings.containsKey(_selectedStandingLeague))) {
             _selectedStandingLeague = _standings.keys.first;
           }
+          if (_topScorers.isNotEmpty &&
+              (_selectedScorerLeague == null ||
+                  !_topScorers.containsKey(_selectedScorerLeague))) {
+            _selectedScorerLeague = _topScorers.keys.first;
+          }
           _isLoading = false;
         });
+
+        _pollLiveMatchesFromFotMob();
       } else {
         throw Exception('HTTP ${response.statusCode}');
       }
@@ -146,6 +329,221 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
         if (!silent) _errorMsg = 'تعذر تحديث البيانات، اسحب للأسفل للمحاولة مجدداً.';
       });
     }
+  }
+
+  void _openMatchDetailsSheet(Map<String, dynamic> m) async {
+    await _fetchSingleMatchDetails(m);
+    if (!mounted) return;
+    setState(() {});
+
+    final d = Map<String, dynamic>.from(m['details'] ?? {});
+    final events = (d['events'] as List?) ?? [];
+    final stats = (d['stats'] as List?) ?? [];
+    final lineups = Map<String, dynamic>.from(d['lineups'] ?? {});
+    final homeStarters = (lineups['home'] as List?) ?? [];
+    final awayStarters = (lineups['away'] as List?) ?? [];
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xFF1E293B),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: 0.72,
+        maxChildSize: 0.92,
+        builder: (_, scrollCtrl) => Directionality(
+          textDirection: TextDirection.rtl,
+          child: ListView(
+            controller: scrollCtrl,
+            padding: const EdgeInsets.all(16),
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.white24,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+              ),
+              Text(
+                '🏆 ${m['league'] ?? ''}',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Color(0xFF22C55E),
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                ),
+              ),
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      children: [
+                        _teamLogo(m['homeLogo']?.toString()),
+                        const SizedBox(height: 6),
+                        Text(
+                          m['home']?.toString() ?? '',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Column(
+                    children: [
+                      Text(
+                        m['status'] == 'NS'
+                            ? _getLocalMatchTime(m)
+                            : '${m['scoreHome'] ?? 0} - ${m['scoreAway'] ?? 0}',
+                        style: const TextStyle(
+                            fontSize: 24, fontWeight: FontWeight.w900),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        ['LIVE', '1H', '2H', 'HT'].contains(m['status'])
+                            ? _computeLiveMinute(m)
+                            : (m['status'] == 'FT' ? 'انتهت' : 'لم تبدأ'),
+                        style: const TextStyle(
+                            color: Colors.redAccent,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12),
+                      ),
+                    ],
+                  ),
+                  Expanded(
+                    child: Column(
+                      children: [
+                        _teamLogo(m['awayLogo']?.toString()),
+                        const SizedBox(height: 6),
+                        Text(
+                          m['away']?.toString() ?? '',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              if ((d['stadium']?.toString() ?? '').isNotEmpty ||
+                  (d['referee']?.toString() ?? '').isNotEmpty) ...[
+                const SizedBox(height: 10),
+                Text(
+                  '${(d['stadium'] ?? '').isNotEmpty ? '🏟️ ${d['stadium']} ' : ''}${(d['referee'] ?? '').isNotEmpty ? '• 👨‍⚖️ ${d['referee']}' : ''}',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Colors.white70, fontSize: 12),
+                ),
+              ],
+              const Divider(height: 26, color: Color(0xFF334155)),
+              const Text('⏱️ أحداث المباراة',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+              const SizedBox(height: 8),
+              if (events.isEmpty)
+                const Text('لا توجد أحداث مسجلة بعد.',
+                    style: TextStyle(color: Colors.grey))
+              else
+                ...events.map((e) => Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 5),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              e['isHome'] == true
+                                  ? "${e['player']} (${e['time']})"
+                                  : '',
+                              textAlign: TextAlign.right,
+                            ),
+                          ),
+                          Text(e['type'] == 'goal'
+                              ? '⚽'
+                              : (e['type'] == 'red_card' ? '🟥' : '🟨')),
+                          Expanded(
+                            child: Text(
+                              e['isHome'] != true
+                                  ? "(${e['time']}) ${e['player']}"
+                                  : '',
+                              textAlign: TextAlign.left,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )),
+              if (stats.isNotEmpty) ...[
+                const Divider(height: 26, color: Color(0xFF334155)),
+                const Text('📊 إحصائيات اللقاء',
+                    style:
+                        TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                const SizedBox(height: 8),
+                ...stats.map((s) => Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 5),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text('${s['home']}',
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.bold)),
+                          Text('${s['title']}',
+                              style: const TextStyle(color: Colors.white70)),
+                          Text('${s['away']}',
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                    )),
+              ],
+              if (homeStarters.isNotEmpty || awayStarters.isNotEmpty) ...[
+                const Divider(height: 26, color: Color(0xFF334155)),
+                const Text('👕 التشكيلة الأساسية',
+                    style:
+                        TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                const SizedBox(height: 8),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: homeStarters
+                            .map((p) => Padding(
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 2),
+                                  child: Text(
+                                      '${p['number'] ?? ''} ${p['name'] ?? ''}',
+                                      style: const TextStyle(fontSize: 12.5)),
+                                ))
+                            .toList(),
+                      ),
+                    ),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: awayStarters
+                            .map((p) => Padding(
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 2),
+                                  child: Text(
+                                      '${p['name'] ?? ''} ${p['number'] ?? ''}',
+                                      style: const TextStyle(fontSize: 12.5)),
+                                ))
+                            .toList(),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -183,7 +581,10 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
-            onPressed: () => _fetchAppData(),
+            onPressed: () {
+              _fetchAppData();
+              _pollLiveMatchesFromFotMob();
+            },
           ),
         ],
       ),
@@ -228,6 +629,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
                         children: [
                           _buildMatchesTab(),
                           _buildStandingsTab(),
+                          _buildScorersTab(),
                           _buildNewsTab(),
                         ],
                       ),
@@ -236,6 +638,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
       ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
+        type: BottomNavigationBarType.fixed,
         backgroundColor: const Color(0xFF0F172A),
         selectedItemColor: const Color(0xFF22C55E),
         unselectedItemColor: const Color(0xFF94A3B8),
@@ -243,6 +646,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.sports_soccer), label: 'المباريات'),
           BottomNavigationBarItem(icon: Icon(Icons.leaderboard), label: 'الترتيب'),
+          BottomNavigationBarItem(icon: Icon(Icons.emoji_events), label: 'الهدافون'),
           BottomNavigationBarItem(icon: Icon(Icons.article), label: 'الأخبار'),
         ],
       ),
@@ -251,13 +655,16 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
 
   // ==================== 1. تبويب المباريات ====================
   Widget _buildMatchesTab() {
-    final liveMatches = _matches.where((m) => m['status'] == 'LIVE').toList();
+    final liveMatches = _matches
+        .where((m) => ['LIVE', '1H', '2H', 'HT'].contains(m['status']))
+        .toList();
     final displayedMatches = _liveOnly
         ? liveMatches
-        : _matches.where((m) => _getLocalMatchDate(m) == _selectedLocalDate).toList();
+        : _matches
+            .where((m) => _getLocalMatchDate(m) == _selectedLocalDate)
+            .toList();
 
-    // تجميع حسب البطولة
-    final Map<String, List<dynamic>> grouped = {};
+    final Map<String, List>> grouped = {};
     for (final m in displayedMatches) {
       final lg = m['league']?.toString() ?? 'بطولات متنوعة';
       grouped.putIfAbsent(lg, () => []).add(m);
@@ -265,13 +672,17 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
 
     final Map<String, int> orderMap = {
       for (final l in _leagues)
-        if (l['name'] != null) l['name'].toString(): (l['order'] as num?)?.toInt() ?? 99
+        if (l['name'] != null)
+          l['name'].toString(): (l['order'] as num?)?.toInt() ?? 99
     };
     final sortedLeagues = grouped.keys.toList()
       ..sort((a, b) => (orderMap[a] ?? 99).compareTo(orderMap[b] ?? 99));
 
     return RefreshIndicator(
-      onRefresh: () => _fetchAppData(),
+      onRefresh: () async {
+        await _fetchAppData();
+        await _pollLiveMatchesFromFotMob();
+      },
       child: ListView(
         padding: const EdgeInsets.all(12),
         children: [
@@ -342,10 +753,10 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
       height: 76,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
-        itemCount: 7,
+        itemCount: 10, // 10 أيام كاملة: أمسين + اليوم + 7 أيام قادمة (تشمل الجمعة والسبت والأحد)
         separatorBuilder: (_, __) => const SizedBox(width: 8),
         itemBuilder: (context, index) {
-          final offset = index - 1; // -1 أمس، 0 اليوم، +1..+5 الأيام القادمة
+          final offset = index - 2; // -2 أول أمس، -1 أمس، 0 اليوم، +1..+7 الأيام القادمة
           final date = DateTime.now().add(Duration(days: offset));
           final iso = _toLocalIsoDate(date);
           final label = offset == 0
@@ -354,7 +765,9 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
                   ? 'غداً'
                   : offset == -1
                       ? 'أمس'
-                      : daysAr[date.weekday % 7];
+                      : offset == -2
+                          ? 'أول أمس'
+                          : daysAr[date.weekday % 7];
           final count = _matches.where((m) => _getLocalMatchDate(m) == iso).length;
           final isSelected = !_liveOnly && iso == _selectedLocalDate;
 
@@ -398,7 +811,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
     );
   }
 
-  Widget _buildLeagueCard(String leagueName, List<dynamic> leagueMatches) {
+  Widget _buildLeagueCard(String leagueName, List> leagueMatches) {
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
       decoration: BoxDecoration(
@@ -430,10 +843,12 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
 
   Widget _buildMatchRow(Map<String, dynamic> m) {
     final status = m['status']?.toString() ?? 'NS';
+    final isLive = ['LIVE', '1H', '2H', 'HT'].contains(status);
     final localTime = _getLocalMatchTime(m);
     final channel = m['channel']?.toString() ?? '';
     final commentator = m['commentator']?.toString() ?? '';
     final stadium = m['stadium']?.toString() ?? '';
+    final secPulse = DateTime.now().second % 2 == 0;
 
     final meta = <String>[
       if (channel.isNotEmpty) '📺 $channel',
@@ -441,95 +856,100 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
       if (stadium.isNotEmpty) '🏟️ $stadium',
     ];
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-      decoration: const BoxDecoration(
-        border: Border(top: BorderSide(color: Color(0xFF334155), width: 0.6)),
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    Flexible(
-                      child: Text(
-                        m['home']?.toString() ?? '',
-                        textAlign: TextAlign.left,
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
+    return InkWell(
+      onTap: () => _openMatchDetailsSheet(m),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        decoration: const BoxDecoration(
+          border: Border(top: BorderSide(color: Color(0xFF334155), width: 0.6)),
+        ),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      Flexible(
+                        child: Text(
+                          m['home']?.toString() ?? '',
+                          textAlign: TextAlign.left,
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
+                        ),
                       ),
+                      const SizedBox(width: 8),
+                      _teamLogo(m['homeLogo']?.toString()),
+                    ],
+                  ),
+                ),
+                Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 10),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF0F172A),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: isLive ? Colors.redAccent : const Color(0xFF334155),
                     ),
-                    const SizedBox(width: 8),
-                    _teamLogo(m['homeLogo']?.toString()),
-                  ],
-                ),
-              ),
-              Container(
-                margin: const EdgeInsets.symmetric(horizontal: 10),
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF0F172A),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: const Color(0xFF334155)),
-                ),
-                child: Column(
-                  children: [
-                    if (status == 'NS')
-                      Text(localTime, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14))
-                    else
+                  ),
+                  child: Column(
+                    children: [
+                      if (status == 'NS')
+                        Text(localTime, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14))
+                      else
+                        Text(
+                          '${m['scoreHome'] ?? 0} - ${m['scoreAway'] ?? 0}',
+                          style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15),
+                        ),
+                      const SizedBox(height: 2),
                       Text(
-                        '${m['scoreHome'] ?? 0} - ${m['scoreAway'] ?? 0}',
-                        style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15),
-                      ),
-                    const SizedBox(height: 2),
-                    Text(
-                      status == 'LIVE'
-                          ? 'مباشر ${m['minute'] ?? ''}'
-                          : status == 'FT'
-                              ? 'انتهت'
-                              : 'لم تبدأ',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        color: status == 'LIVE'
-                            ? Colors.redAccent
+                        isLive
+                            ? '${_computeLiveMinute(m)}${secPulse ? ' •' : ''}'
                             : status == 'FT'
-                                ? const Color(0xFF94A3B8)
-                                : const Color(0xFF60A5FA),
+                                ? 'انتهت'
+                                : 'لم تبدأ',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: isLive
+                              ? Colors.redAccent
+                              : status == 'FT'
+                                  ? const Color(0xFF94A3B8)
+                                  : const Color(0xFF60A5FA),
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              Expanded(
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.start,
-                  children: [
-                    _teamLogo(m['awayLogo']?.toString()),
-                    const SizedBox(width: 8),
-                    Flexible(
-                      child: Text(
-                        m['away']?.toString() ?? '',
-                        textAlign: TextAlign.right,
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
+                Expanded(
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.start,
+                    children: [
+                      _teamLogo(m['awayLogo']?.toString()),
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: Text(
+                          m['away']?.toString() ?? '',
+                          textAlign: TextAlign.right,
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
+              ],
+            ),
+            if (meta.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                meta.join(' • '),
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 11.5, color: Color(0xFF94A3B8)),
               ),
             ],
-          ),
-          if (meta.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            Text(
-              meta.join(' • '),
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 11.5, color: Color(0xFF94A3B8)),
-            ),
           ],
-        ],
+        ),
       ),
     );
   }
@@ -640,7 +1060,85 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
     );
   }
 
-  // ==================== 3. تبويب الأخبار ====================
+  // ==================== 3. تبويب الهدافين ====================
+  Widget _buildScorersTab() {
+    final leagueNames = _topScorers.keys.toList();
+    if (leagueNames.isEmpty) {
+      return const Center(child: Text('لا تتوفر بيانات الهدافين حالياً.'));
+    }
+
+    final rows = List<dynamic>.from(_topScorers[_selectedScorerLeague] ?? []);
+
+    return RefreshIndicator(
+      onRefresh: () => _fetchAppData(),
+      child: ListView(
+        padding: const EdgeInsets.all(12),
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            decoration: BoxDecoration(
+              color: const Color(0xFF1E293B),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFF334155)),
+            ),
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<String>(
+                value: _selectedScorerLeague,
+                isExpanded: true,
+                dropdownColor: const Color(0xFF1E293B),
+                items: leagueNames
+                    .map((name) => DropdownMenuItem(value: name, child: Text(name)))
+                    .toList(),
+                onChanged: (val) => setState(() => _selectedScorerLeague = val),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Container(
+            decoration: BoxDecoration(
+              color: const Color(0xFF1E293B),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: const Color(0xFF334155)),
+            ),
+            child: Column(
+              children: rows.map((r) {
+                return ListTile(
+                  leading: CircleAvatar(
+                    backgroundColor: const Color(0xFF0F172A),
+                    child: Text(
+                      '${r['rank']}',
+                      style: const TextStyle(
+                          color: Color(0xFF22C55E), fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  title: Text(r['player']?.toString() ?? '',
+                      style: const TextStyle(fontWeight: FontWeight.bold)),
+                  subtitle: Text(r['team']?.toString() ?? '',
+                      style: const TextStyle(color: Color(0xFF94A3B8))),
+                  trailing: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF22C55E).withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      '${r['goals']} هدف',
+                      style: const TextStyle(
+                          color: Color(0xFF22C55E),
+                          fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ==================== 4. تبويب الأخبار ====================
   Widget _buildNewsTab() {
     if (_news.isEmpty) {
       return const Center(child: Text('لا توجد أخبار منشورة حالياً.'));
