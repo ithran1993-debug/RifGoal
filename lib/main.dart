@@ -3,7 +3,9 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
-void main() => runApp(const RifGoalApp());
+void main() {
+  runApp(const RifGoalApp());
+}
 
 class RifGoalApp extends StatelessWidget {
   const RifGoalApp({super.key});
@@ -20,10 +22,12 @@ class RifGoalApp extends StatelessWidget {
         appBarTheme: const AppBarTheme(
           backgroundColor: Color(0xFF0F172A),
           elevation: 0,
+          centerTitle: false,
         ),
       ),
-      builder: (context, child) =>
-          Directionality(textDirection: TextDirection.rtl, child: child!),
+      builder: (context, child) {
+        return Directionality(textDirection: TextDirection.rtl, child: child!);
+      },
       home: const MainHomeScreen(),
     );
   }
@@ -40,155 +44,151 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
   static const String dataUrl =
       'https://ithran1993-debug.github.io/rifkoora/app_data.json';
 
-  int _tab = 0;
-  bool _loading = true;
-  bool _liveOnly = false;
-  late String _selectedDate;
-  late String _todayIso;
-  String? _standingLeague;
-  String? _scorerLeague;
+  int _currentIndex = 0;
+  bool _isLoading = true;
+  String? _errorMsg;
+  Timer? _autoRefreshTimer;
+  Timer? _secondTickTimer;
+  Timer? _liveDetailsTimer;
 
   Map _settings = {'siteTitle': 'ريف جول', 'announcement': ''};
   List _leagues = [];
   List _matches = [];
   Map _standings = {};
-  Map _scorers = {};
+  Map _topScorers = {};
   List _news = [];
+  final Map<String, List>> _localNewsComments = {};
 
-  Timer? _syncTimer;
-  Timer? _secTimer;
-  Timer? _liveTimer;
+  late String _selectedLocalDate;
+  late String _lastTodayIso;
+  bool _liveOnly = false;
+  String? _selectedStandingLeague;
+  String? _selectedScorerLeague;
 
   @override
   void initState() {
     super.initState();
-    _todayIso = _isoDate(DateTime.now());
-    _selectedDate = _todayIso;
-    _fetchData();
+    _lastTodayIso = _toLocalIsoDate(DateTime.now());
+    _selectedLocalDate = _lastTodayIso;
+    _fetchAppData();
 
-    _syncTimer = Timer.periodic(
-        const Duration(seconds: 60), (_) => _fetchData(silent: true));
-    _secTimer = Timer.periodic(const Duration(seconds: 1), (_) => _onTick());
-    _liveTimer =
-        Timer.periodic(const Duration(seconds: 15), (_) => _pollLive());
+    _autoRefreshTimer = Timer.periodic(
+      const Duration(seconds: 60),
+      (_) => _fetchAppData(silent: true),
+    );
+    _secondTickTimer = Timer.periodic(
+      const Duration(seconds: 1),
+      (_) => _onSecondTick(),
+    );
+    _liveDetailsTimer = Timer.periodic(
+      const Duration(seconds: 15),
+      (_) => _pollLiveMatchesFromFotMob(),
+    );
   }
 
   @override
   void dispose() {
-    _syncTimer?.cancel();
-    _secTimer?.cancel();
-    _liveTimer?.cancel();
+    _autoRefreshTimer?.cancel();
+    _secondTickTimer?.cancel();
+    _liveDetailsTimer?.cancel();
     super.dispose();
   }
 
-  String _isoDate(DateTime dt) {
-    final d = dt.toLocal();
-    return '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
-  }
-
-  String _matchDate(Map m) {
-    final ts = m['timestamp']?.toString() ?? '';
-    final p = ts.isNotEmpty
-        ? DateTime.tryParse(ts.endsWith('Z') ? ts : '${ts}Z')
-        : null;
-    return p != null ? _isoDate(p) : (m['date']?.toString() ?? _selectedDate);
-  }
-
-  String _matchTime(Map m) {
-    final ts = m['timestamp']?.toString() ?? '';
-    final p = ts.isNotEmpty
-        ? DateTime.tryParse(ts.endsWith('Z') ? ts : '${ts}Z')?.toLocal()
-        : null;
-    return p != null
-        ? '${p.hour.toString().padLeft(2, '0')}:${p.minute.toString().padLeft(2, '0')}'
-        : (m['time']?.toString() ?? '20:00');
-  }
-
-  String _liveMinute(Map m) {
-    final raw = (m['minute'] ?? '').toString();
-    if (raw.contains('+')) return raw;
-    final ts = (m['timestamp'] ?? '').toString();
-    final start = ts.isNotEmpty
-        ? DateTime.tryParse(ts.endsWith('Z') ? ts : '${ts}Z')
-        : null;
-    if (start == null) return raw.isNotEmpty ? raw : 'مباشر';
-    final diff = DateTime.now().toUtc().difference(start).inMinutes;
-    if (diff < 0) return 'لم تبدأ';
-    if (diff <= 45) return "${diff < 1 ? 1 : diff}'";
-    if (diff <= 60) return 'استراحة';
-    final h2 = diff - 15;
-    if (h2 <= 90) return "$h2'";
-    if (h2 <= 105) return "90+${h2 - 90}'";
-    return raw.isNotEmpty ? raw : 'مباشر';
-  }
-
-  void _onTick() {
+  void _onSecondTick() {
     if (!mounted) return;
     final now = DateTime.now();
-    final today = _isoDate(now);
-    bool refresh = false;
+    final todayIso = _toLocalIsoDate(now);
+    bool needsRebuild = false;
 
-    if (today != _todayIso) {
-      _todayIso = today;
-      _selectedDate = today;
-      refresh = true;
+    if (todayIso != _lastTodayIso) {
+      _lastTodayIso = todayIso;
+      _selectedLocalDate = todayIso;
+      needsRebuild = true;
     }
 
-    final utc = now.toUtc();
+    final nowUtc = now.toUtc();
     for (final m in _matches) {
       if (m is! Map) continue;
-      final st = m['status']?.toString() ?? 'NS';
-      if (st == 'NS' && m['timestamp'] != null) {
+      final status = m['status']?.toString() ?? 'NS';
+      if (status == 'NS' && m['timestamp'] != null) {
         final ts = m['timestamp'].toString();
         final start = DateTime.tryParse(ts.endsWith('Z') ? ts : '${ts}Z');
         if (start != null &&
-            utc.isAfter(start) &&
-            utc.difference(start).inHours < 2) {
+            nowUtc.isAfter(start) &&
+            nowUtc.difference(start).inHours < 2) {
           m['status'] = 'LIVE';
           m['scoreHome'] ??= 0;
           m['scoreAway'] ??= 0;
-          refresh = true;
+          needsRebuild = true;
         }
-      } else if (['LIVE', '1H', '2H', 'HT'].contains(st)) {
-        refresh = true;
+      } else if (['LIVE', '1H', '2H', 'HT'].contains(status)) {
+        needsRebuild = true;
       }
     }
-    if (refresh) setState(() {});
+
+    if (needsRebuild) setState(() {});
   }
 
-  Future<void> _fetchMatchDetails(Map m) async {
+  String _computeLiveMinute(Map m) {
+    final rawMin = (m['minute'] ?? '').toString();
+    if (rawMin.contains('+')) return rawMin;
+    final ts = (m['timestamp'] ?? '').toString();
+    if (ts.isEmpty) return rawMin.isNotEmpty ? rawMin : '';
+    final start = DateTime.tryParse(ts.endsWith('Z') ? ts : '${ts}Z');
+    if (start == null) return rawMin;
+    final diffMin = DateTime.now().toUtc().difference(start).inMinutes;
+    if (diffMin < 0) return '';
+    if (diffMin <= 45) return "${diffMin < 1 ? 1 : diffMin}'";
+    if (diffMin <= 60) return 'استراحة';
+    final secondHalf = diffMin - 15;
+    if (secondHalf <= 90) return "$secondHalf'";
+    if (secondHalf <= 105) return "90+${secondHalf - 90}'";
+    return rawMin;
+  }
+
+  Future<void> _fetchSingleMatchDetails(Map m) async {
     final id = m['id']?.toString();
     if (id == null || id.isEmpty) return;
-    try {
-      final res = await http.get(
-        Uri.parse('https://www.fotmob.com/api/matchDetails?matchId=$id&ccode3=MAR'),
-        headers: {'Accept-Language': 'ar-MA,ar;q=0.9', 'Cookie': 'fotmob_lang=ar; ccode3=MAR'},
-      ).timeout(const Duration(seconds: 10));
-      if (res.statusCode != 200) return;
 
-      final j = jsonDecode(utf8.decode(res.bodyBytes));
-      final teams = j['header']?['teams'] ?? [];
-      final st = j['header']?['status'] ?? {};
-      if (teams is List && teams.length >= 2) {
+    try {
+      final uri = Uri.parse(
+        'https://www.fotmob.com/api/matchDetails?matchId=$id&ccode3=MAR',
+      );
+      final res = await http.get(uri, headers: {
+        'Accept-Language': 'ar-MA,ar;q=0.9',
+        'Cookie': 'fotmob_lang=ar; ccode3=MAR',
+      }).timeout(const Duration(seconds: 10));
+
+      if (res.statusCode != 200) return;
+      final json = jsonDecode(utf8.decode(res.bodyBytes));
+      final header = json['header'] ?? {};
+      final teams = header['teams'] is List ? header['teams'] : [];
+      final statusObj = header['status'] ?? {};
+
+      if (teams.length >= 2) {
         m['scoreHome'] = teams[0]['score'] ?? m['scoreHome'] ?? 0;
         m['scoreAway'] = teams[1]['score'] ?? m['scoreAway'] ?? 0;
-        m['status'] = st['finished'] == true
+        m['status'] = statusObj['finished'] == true
             ? 'FT'
-            : (st['started'] == true ? 'LIVE' : m['status']);
-        m['minute'] = st['liveTime']?['short'] ?? m['minute'];
+            : (statusObj['started'] == true ? 'LIVE' : m['status']);
+        m['minute'] = statusObj['liveTime']?['short'] ?? m['minute'];
       }
 
-      final content = j['content'] ?? {};
-      final events = content['matchFacts']?['events']?['events'] ?? [];
-      final info = content['matchFacts']?['infoBox'] ?? {};
-      final periods = content['stats']?['Periods']?['All']?['stats'] ?? [];
-      final stats = (periods is List && periods.isNotEmpty) ? (periods[0]['stats'] ?? []) : [];
+      final content = json['content'] ?? {};
+      final rawEvents = content['matchFacts']?['events']?['events'] ?? [];
+      final infoBox = content['matchFacts']?['infoBox'] ?? {};
+      final topStats = content['stats']?['Periods']?['All']?['stats'] ?? [];
+      final statsItems =
+          (topStats is List && topStats.isNotEmpty) ? (topStats[0]['stats'] ?? []) : [];
       final lineup = content['lineup'] ?? {};
 
+      final stadiumName = infoBox['Stadium']?['name']?.toString() ?? '';
+      if (stadiumName.isNotEmpty) m['stadium'] = stadiumName;
+
       m['details'] = {
-        'stadium': info['Stadium']?['name'] ?? '',
-        'referee': info['Referee']?['text'] ?? '',
-        'events': (events is List ? events : [])
+        'stadium': stadiumName,
+        'referee': infoBox['Referee']?['text']?.toString() ?? '',
+        'events': (rawEvents is List ? rawEvents : [])
             .where((e) => e['type'] == 'Goal' || e['type'] == 'Card')
             .map((e) => {
                   'time': e['timeStr'] ?? "${e['time']}'",
@@ -199,177 +199,318 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
                   'isHome': e['isHome'] == true,
                 })
             .toList(),
-        'stats': (stats is List ? stats : [])
+        'stats': (statsItems is List ? statsItems : [])
             .map((s) => {
                   'title': s['title'] ?? '',
                   'home': (s['stats'] is List && s['stats'].isNotEmpty) ? s['stats'][0] : '',
                   'away': (s['stats'] is List && s['stats'].length > 1) ? s['stats'][1] : '',
                 })
             .toList(),
-        'homeLineup': (lineup['homeTeam']?['starters'] is List ? lineup['homeTeam']['starters'] : [])
-            .map((p) => '${p['shirtNumber'] ?? ''} ${p['name'] ?? ''}')
-            .toList(),
-        'awayLineup': (lineup['awayTeam']?['starters'] is List ? lineup['awayTeam']['starters'] : [])
-            .map((p) => '${p['shirtNumber'] ?? ''} ${p['name'] ?? ''}')
-            .toList(),
+        'lineups': {
+          'home': (lineup['homeTeam']?['starters'] is List ? lineup['homeTeam']['starters'] : [])
+              .map((p) => {'number': p['shirtNumber'], 'name': p['name']})
+              .toList(),
+          'away': (lineup['awayTeam']?['starters'] is List ? lineup['awayTeam']['starters'] : [])
+              .map((p) => {'number': p['shirtNumber'], 'name': p['name']})
+              .toList(),
+        }
       };
     } catch (_) {}
   }
 
-  Future<void> _pollLive() async {
-    final today = _isoDate(DateTime.now());
-    final live = _matches
+  Future<void> _pollLiveMatchesFromFotMob() async {
+    final todayIso = _toLocalIsoDate(DateTime.now());
+    final liveList = _matches
         .where((m) =>
             m is Map &&
-            _matchDate(m) == today &&
+            _getLocalMatchDate(m) == todayIso &&
             ['LIVE', '1H', '2H', 'HT'].contains(m['status']))
         .take(15)
         .toList();
-    if (live.isEmpty) return;
-    for (final m in live) {
-      await _fetchMatchDetails(m as Map);
+
+    if (liveList.isEmpty) return;
+    for (final m in liveList) {
+      await _fetchSingleMatchDetails(m as Map);
     }
     if (mounted) setState(() {});
   }
 
-  Future<void> _fetchData({bool silent = false}) async {
-    if (!silent) setState(() => _loading = true);
-    try {
-      final res = await http
-          .get(Uri.parse('$dataUrl?t=${DateTime.now().millisecondsSinceEpoch}'))
-          .timeout(const Duration(seconds: 15));
-      if (res.statusCode == 200 && mounted) {
-        final d = jsonDecode(utf8.decode(res.bodyBytes));
-        setState(() {
-          _settings = d['settings'] is Map ? d['settings'] : _settings;
-          _leagues = d['leagues'] is List ? d['leagues'] : [];
-          _matches = d['matches'] is List ? d['matches'] : [];
-          _standings = d['standings'] is Map ? d['standings'] : {};
-          _scorers = d['topScorers'] is Map ? d['topScorers'] : {};
-          _news = d['news'] is List ? d['news'] : [];
-          if (_standings.isNotEmpty && !_standings.containsKey(_standingLeague)) {
-            _standingLeague = _standings.keys.first.toString();
-          }
-          if (_scorers.isNotEmpty && !_scorers.containsKey(_scorerLeague)) {
-            _scorerLeague = _scorers.keys.first.toString();
-          }
-          _loading = false;
-        });
-        _pollLive();
+  String _toLocalIsoDate(DateTime dt) {
+    final local = dt.toLocal();
+    final y = local.year.toString().padLeft(4, '0');
+    final m = local.month.toString().padLeft(2, '0');
+    final d = local.day.toString().padLeft(2, '0');
+    return '$y-$m-$d';
+  }
+
+  String _getLocalMatchDate(Map match) {
+    final ts = match['timestamp']?.toString();
+    if (ts != null && ts.isNotEmpty) {
+      final parsed = DateTime.tryParse(ts.endsWith('Z') ? ts : '${ts}Z');
+      if (parsed != null) return _toLocalIsoDate(parsed);
+    }
+    return match['date']?.toString() ?? _selectedLocalDate;
+  }
+
+  String _getLocalMatchTime(Map match) {
+    final ts = match['timestamp']?.toString();
+    if (ts != null && ts.isNotEmpty) {
+      final parsed =
+          DateTime.tryParse(ts.endsWith('Z') ? ts : '${ts}Z')?.toLocal();
+      if (parsed != null) {
+        final h = parsed.hour.toString().padLeft(2, '0');
+        final m = parsed.minute.toString().padLeft(2, '0');
+        return '$h:$m';
       }
-    } catch (_) {
-      if (mounted) setState(() => _loading = false);
+    }
+    return match['time']?.toString() ?? '20:00';
+  }
+
+  Future<void> _fetchAppData({bool silent = false}) async {
+    if (!silent) {
+      setState(() {
+        _isLoading = true;
+        _errorMsg = null;
+      });
+    }
+
+    try {
+      final uri = Uri.parse('$dataUrl?t=${DateTime.now().millisecondsSinceEpoch}');
+      final response = await http.get(uri).timeout(const Duration(seconds: 15));
+
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(utf8.decode(response.bodyBytes));
+        if (!mounted) return;
+        setState(() {
+          _settings = decoded['settings'] is Map ? decoded['settings'] : _settings;
+          _leagues = decoded['leagues'] is List ? decoded['leagues'] : [];
+          _matches = decoded['matches'] is List ? decoded['matches'] : [];
+          _standings = decoded['standings'] is Map ? decoded['standings'] : {};
+          _topScorers = decoded['topScorers'] is Map ? decoded['topScorers'] : {};
+          _news = decoded['news'] is List ? decoded['news'] : [];
+
+          if (_standings.isNotEmpty &&
+              (_selectedStandingLeague == null ||
+                  !_standings.containsKey(_selectedStandingLeague))) {
+            _selectedStandingLeague = _standings.keys.first.toString();
+          }
+          if (_topScorers.isNotEmpty &&
+              (_selectedScorerLeague == null ||
+                  !_topScorers.containsKey(_selectedScorerLeague))) {
+            _selectedScorerLeague = _topScorers.keys.first.toString();
+          }
+          _isLoading = false;
+        });
+
+        _pollLiveMatchesFromFotMob();
+      } else {
+        throw Exception('HTTP ${response.statusCode}');
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        if (!silent) _errorMsg = 'تعذر تحديث البيانات، اسحب للأسفل للمحاولة مجدداً.';
+      });
     }
   }
 
-  void _openDetails(Map m) async {
-    await _fetchMatchDetails(m);
+  void _openMatchDetailsSheet(Map m) async {
+    await _fetchSingleMatchDetails(m);
     if (!mounted) return;
     setState(() {});
+
     final d = m['details'] is Map ? m['details'] : {};
     final events = d['events'] is List ? d['events'] : [];
     final stats = d['stats'] is List ? d['stats'] : [];
-    final hLine = d['homeLineup'] is List ? d['homeLineup'] : [];
-    final aLine = d['awayLineup'] is List ? d['awayLineup'] : [];
+    final lineups = d['lineups'] is Map ? d['lineups'] : {};
+    final homeStarters = lineups['home'] is List ? lineups['home'] : [];
+    final awayStarters = lineups['away'] is List ? lineups['away'] : [];
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: const Color(0xFF1E293B),
       shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       builder: (_) => DraggableScrollableSheet(
         expand: false,
         initialChildSize: 0.72,
-        builder: (_, ctrl) => Directionality(
+        maxChildSize: 0.92,
+        builder: (_, scrollCtrl) => Directionality(
           textDirection: TextDirection.rtl,
           child: ListView(
-            controller: ctrl,
+            controller: scrollCtrl,
             padding: const EdgeInsets.all(16),
             children: [
-              Text('🏆 ${m['league'] ?? ''}',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                      color: Color(0xFF22C55E), fontWeight: FontWeight.bold)),
-              const SizedBox(height: 12),
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.white24,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+              ),
+              Text(
+                '🏆 ${m['league'] ?? ''}',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Color(0xFF22C55E),
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                ),
+              ),
+              const SizedBox(height: 14),
               Row(
                 children: [
                   Expanded(
-                      child: Text(m['home']?.toString() ?? '',
+                    child: Column(
+                      children: [
+                        _teamLogo(m['homeLogo']?.toString()),
+                        const SizedBox(height: 6),
+                        Text(
+                          m['home']?.toString() ?? '',
                           textAlign: TextAlign.center,
-                          style: const TextStyle(fontWeight: FontWeight.bold))),
-                  Text(
-                    m['status'] == 'NS'
-                        ? _matchTime(m)
-                        : '${m['scoreHome'] ?? 0} - ${m['scoreAway'] ?? 0}',
-                    style: const TextStyle(
-                        fontSize: 22, fontWeight: FontWeight.w900),
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Column(
+                    children: [
+                      Text(
+                        m['status'] == 'NS'
+                            ? _getLocalMatchTime(m)
+                            : '${m['scoreHome'] ?? 0} - ${m['scoreAway'] ?? 0}',
+                        style: const TextStyle(
+                            fontSize: 24, fontWeight: FontWeight.w900),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        ['LIVE', '1H', '2H', 'HT'].contains(m['status'])
+                            ? 'مباشر ${_computeLiveMinute(m)}'
+                            : (m['status'] == 'FT' ? 'انتهت' : 'لم تبدأ'),
+                        style: const TextStyle(
+                            color: Colors.redAccent,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12),
+                      ),
+                    ],
                   ),
                   Expanded(
-                      child: Text(m['away']?.toString() ?? '',
+                    child: Column(
+                      children: [
+                        _teamLogo(m['awayLogo']?.toString()),
+                        const SizedBox(height: 6),
+                        Text(
+                          m['away']?.toString() ?? '',
                           textAlign: TextAlign.center,
-                          style: const TextStyle(fontWeight: FontWeight.bold))),
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                  ),
                 ],
               ),
-              const Divider(height: 24, color: Color(0xFF334155)),
-              const Text('⏱️ الأحداث',
-                  style: TextStyle(fontWeight: FontWeight.bold)),
-              const SizedBox(height: 6),
+              const Divider(height: 26, color: Color(0xFF334155)),
+              const Text('⏱️ أحداث المباراة',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+              const SizedBox(height: 8),
               if (events.isEmpty)
-                const Text('لا توجد أحداث مسجلة بعد',
+                const Text('لا توجد أحداث مسجلة بعد.',
                     style: TextStyle(color: Colors.grey))
               else
                 ...events.map((e) => Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      padding: const EdgeInsets.symmetric(vertical: 5),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text(e['isHome'] == true
-                              ? "${e['player']} (${e['time']})"
-                              : ''),
-                          Text(e['type'] == 'goal' ? '⚽' : '🟨'),
-                          Text(e['isHome'] != true
-                              ? "(${e['time']}) ${e['player']}"
-                              : ''),
+                          Expanded(
+                            child: Text(
+                              e['isHome'] == true
+                                  ? "${e['player']} (${e['time']})"
+                                  : '',
+                              textAlign: TextAlign.right,
+                            ),
+                          ),
+                          Text(e['type'] == 'goal'
+                              ? '⚽'
+                              : (e['type'] == 'red_card' ? '🟥' : '🟨')),
+                          Expanded(
+                            child: Text(
+                              e['isHome'] != true
+                                  ? "(${e['time']}) ${e['player']}"
+                                  : '',
+                              textAlign: TextAlign.left,
+                            ),
+                          ),
                         ],
                       ),
                     )),
               if (stats.isNotEmpty) ...[
-                const Divider(height: 24, color: Color(0xFF334155)),
-                const Text('📊 الإحصائيات',
-                    style: TextStyle(fontWeight: FontWeight.bold)),
-                const SizedBox(height: 6),
+                const Divider(height: 26, color: Color(0xFF334155)),
+                const Text('📊 إحصائيات اللقاء',
+                    style:
+                        TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                const SizedBox(height: 8),
                 ...stats.map((s) => Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      padding: const EdgeInsets.symmetric(vertical: 5),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text('${s['home']}'),
+                          Text('${s['home']}',
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.bold)),
                           Text('${s['title']}',
                               style: const TextStyle(color: Colors.white70)),
-                          Text('${s['away']}'),
+                          Text('${s['away']}',
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.bold)),
                         ],
                       ),
                     )),
               ],
-              if (hLine.isNotEmpty || aLine.isNotEmpty) ...[
-                const Divider(height: 24, color: Color(0xFF334155)),
+              if (homeStarters.isNotEmpty || awayStarters.isNotEmpty) ...[
+                const Divider(height: 26, color: Color(0xFF334155)),
                 const Text('👕 التشكيلة الأساسية',
-                    style: TextStyle(fontWeight: FontWeight.bold)),
-                const SizedBox(height: 6),
+                    style:
+                        TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                const SizedBox(height: 8),
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Expanded(
-                        child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children:
-                                hLine.map((p) => Text(p.toString())).toList())),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: homeStarters
+                            .map((p) => Padding(
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 2),
+                                  child: Text(
+                                      '${p['number'] ?? ''} ${p['name'] ?? ''}',
+                                      style: const TextStyle(fontSize: 12.5)),
+                                ))
+                            .toList(),
+                      ),
+                    ),
                     Expanded(
-                        child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children:
-                                aLine.map((p) => Text(p.toString())).toList())),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: awayStarters
+                            .map((p) => Padding(
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 2),
+                                  child: Text(
+                                      '${p['name'] ?? ''} ${p['number'] ?? ''}',
+                                      style: const TextStyle(fontSize: 12.5)),
+                                ))
+                            .toList(),
+                      ),
+                    ),
                   ],
                 ),
               ],
@@ -380,378 +521,912 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
     );
   }
 
-  Widget _logo(String? url) {
-    if (url == null || url.isEmpty) {
-      return const CircleAvatar(
-          radius: 13,
-          backgroundColor: Color(0xFF334155),
-          child: Icon(Icons.shield, size: 14));
-    }
-    return ClipOval(
-      child: Image.network(url,
-          width: 26,
-          height: 26,
-          fit: BoxFit.contain,
-          errorBuilder: (_, __, ___) => const CircleAvatar(
-              radius: 13,
-              backgroundColor: Color(0xFF334155),
-              child: Icon(Icons.shield, size: 14))),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    final ann = _settings['announcement']?.toString() ?? '';
+    final title = _settings['siteTitle']?.toString().isNotEmpty == true
+        ? _settings['siteTitle'].toString()
+        : 'RifGoal';
+    final announcement = _settings['announcement']?.toString() ?? '';
+
     return Scaffold(
       appBar: AppBar(
         title: Row(
           children: [
             const Icon(Icons.sports_soccer, color: Color(0xFF22C55E)),
             const SizedBox(width: 8),
-            Text(_settings['siteTitle']?.toString() ?? 'RifGoal',
-                style: const TextStyle(fontWeight: FontWeight.bold)),
+            Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: const Color(0xFF22C55E).withOpacity(0.15),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: const Text(
+                'مباشر',
+                style: TextStyle(
+                  color: Color(0xFF22C55E),
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
           ],
         ),
         actions: [
           IconButton(
-              icon: const Icon(Icons.refresh),
-              onPressed: () {
-                _fetchData();
-                _pollLive();
-              }),
+            icon: const Icon(Icons.refresh),
+            onPressed: () {
+              _fetchAppData();
+              _pollLiveMatchesFromFotMob();
+            },
+          ),
         ],
       ),
       body: Column(
         children: [
-          if (ann.isNotEmpty)
+          if (announcement.isNotEmpty)
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.all(8),
-              color: const Color(0xFF16A34A),
-              child: Text('📢 $ann',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(fontWeight: FontWeight.bold)),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Color(0xFF16A34A), Color(0xFF0284C7)],
+                ),
+              ),
+              child: Text(
+                '📢 $announcement',
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+              ),
             ),
           Expanded(
-            child: _loading
+            child: _isLoading
                 ? const Center(
-                    child: CircularProgressIndicator(color: Color(0xFF22C55E)))
-                : IndexedStack(
-                    index: _tab,
-                    children: [
-                      _matchesTab(),
-                      _standingsTab(),
-                      _scorersTab(),
-                      _newsTab(),
-                    ],
-                  ),
+                    child: CircularProgressIndicator(color: Color(0xFF22C55E)),
+                  )
+                : _errorMsg != null && _matches.isEmpty
+                    ? Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(_errorMsg!, style: const TextStyle(color: Colors.grey)),
+                            const SizedBox(height: 12),
+                            ElevatedButton(
+                              onPressed: () => _fetchAppData(),
+                              child: const Text('إعادة المحاولة'),
+                            ),
+                          ],
+                        ),
+                      )
+                    : IndexedStack(
+                        index: _currentIndex,
+                        children: [
+                          _buildMatchesTab(),
+                          _buildStandingsTab(),
+                          _buildScorersTab(),
+                          _buildNewsTab(),
+                        ],
+                      ),
           ),
         ],
       ),
       bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _tab,
+        currentIndex: _currentIndex,
         type: BottomNavigationBarType.fixed,
         backgroundColor: const Color(0xFF0F172A),
         selectedItemColor: const Color(0xFF22C55E),
         unselectedItemColor: const Color(0xFF94A3B8),
-        onTap: (i) => setState(() => _tab = i),
+        onTap: (idx) => setState(() => _currentIndex = idx),
         items: const [
-          BottomNavigationBarItem(
-              icon: Icon(Icons.sports_soccer), label: 'المباريات'),
-          BottomNavigationBarItem(
-              icon: Icon(Icons.leaderboard), label: 'الترتيب'),
-          BottomNavigationBarItem(
-              icon: Icon(Icons.emoji_events), label: 'الهدافون'),
+          BottomNavigationBarItem(icon: Icon(Icons.sports_soccer), label: 'المباريات'),
+          BottomNavigationBarItem(icon: Icon(Icons.leaderboard), label: 'الترتيب'),
+          BottomNavigationBarItem(icon: Icon(Icons.emoji_events), label: 'الهدافون'),
           BottomNavigationBarItem(icon: Icon(Icons.article), label: 'الأخبار'),
         ],
       ),
     );
   }
 
-  Widget _matchesTab() {
-    final live = _matches
-        .where((m) =>
-            m is Map && ['LIVE', '1H', '2H', 'HT'].contains(m['status']))
+  // ==================== 1. تبويب المباريات ====================
+  Widget _buildMatchesTab() {
+    final liveMatches = _matches
+        .where((m) => m is Map && ['LIVE', '1H', '2H', 'HT'].contains(m['status']))
         .toList();
-    final list = _liveOnly
-        ? live
+    final displayedMatches = _liveOnly
+        ? liveMatches
         : _matches
-            .where((m) => m is Map && _matchDate(m) == _selectedDate)
+            .where((m) => m is Map && _getLocalMatchDate(m) == _selectedLocalDate)
             .toList();
 
     final Map grouped = {};
-    for (final m in list) {
-      final lg = m['league']?.toString() ?? 'أخرى';
+    for (final m in displayedMatches) {
+      final lg = m['league']?.toString() ?? 'بطولات متنوعة';
       grouped.putIfAbsent(lg, () => []).add(m);
     }
 
-    const days = [
-      'الأحد',
-      'الإثنين',
-      'الثلاثاء',
-      'الأربعاء',
-      'الخميس',
-      'الجمعة',
-      'السبت'
-    ];
+    final Map orderMap = {};
+    for (final l in _leagues) {
+      if (l is Map && l['name'] != null) {
+        orderMap[l['name'].toString()] = (l['order'] as num?)?.toInt() ?? 99;
+      }
+    }
+    final sortedLeagues = grouped.keys.map((e) => e.toString()).toList()
+      ..sort((a, b) => ((orderMap[a] ?? 99) as int).compareTo((orderMap[b] ?? 99) as int));
 
     return RefreshIndicator(
       onRefresh: () async {
-        await _fetchData();
-        await _pollLive();
+        await _fetchAppData();
+        await _pollLiveMatchesFromFotMob();
       },
       child: ListView(
         padding: const EdgeInsets.all(12),
         children: [
-          SizedBox(
-            height: 72,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: 10,
-              separatorBuilder: (_, __) => const SizedBox(width: 8),
-              itemBuilder: (_, idx) {
-                final off = idx - 2;
-                final d = DateTime.now().add(Duration(days: off));
-                final iso = _isoDate(d);
-                final lbl = off == 0
-                    ? 'اليوم'
-                    : off == 1
-                        ? 'غداً'
-                        : off == -1
-                            ? 'أمس'
-                            : off == -2
-                                ? 'أول أمس'
-                                : days[d.weekday % 7];
-                final sel = !_liveOnly && iso == _selectedDate;
-                return GestureDetector(
-                  onTap: () => setState(() {
-                    _selectedDate = iso;
-                    _liveOnly = false;
-                  }),
-                  child: Container(
-                    width: 80,
-                    decoration: BoxDecoration(
-                      color: sel
-                          ? const Color(0xFF2563EB)
-                          : const Color(0xFF1E293B),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(lbl,
-                            style: const TextStyle(
-                                fontWeight: FontWeight.bold, fontSize: 13)),
-                        Text(iso.substring(5),
-                            style: const TextStyle(
-                                fontSize: 11, color: Colors.white70)),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
+          _buildWeekDaysStrip(),
           const SizedBox(height: 12),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('📅 $_selectedDate (${list.length})',
-                  style: const TextStyle(fontWeight: FontWeight.bold)),
-              ActionChip(
-                label: Text('🔴 مباشر (${live.length})'),
-                backgroundColor:
-                    _liveOnly ? Colors.red.withOpacity(0.3) : null,
-                onPressed: () => setState(() => _liveOnly = !_liveOnly),
+              Text(
+                _liveOnly
+                    ? '🔴 المباريات المباشرة (${displayedMatches.length})'
+                    : '📅 $_selectedLocalDate (${displayedMatches.length})',
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+              ),
+              InkWell(
+                onTap: () => setState(() => _liveOnly = !_liveOnly),
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: _liveOnly
+                        ? Colors.red.withOpacity(0.2)
+                        : const Color(0xFF1E293B),
+                    border: Border.all(
+                      color: _liveOnly ? Colors.red : const Color(0xFF334155),
+                    ),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.circle, size: 10, color: Colors.red),
+                      const SizedBox(width: 6),
+                      Text(
+                        'مباشر (${liveMatches.length})',
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 10),
-          if (grouped.isEmpty)
-            const Padding(
-              padding: EdgeInsets.all(32),
-              child: Center(
-                  child: Text('لا توجد مباريات في هذا اليوم',
-                      style: TextStyle(color: Colors.grey))),
+          const SizedBox(height: 12),
+          if (sortedLeagues.isEmpty)
+            Container(
+              padding: const EdgeInsets.all(32),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1E293B),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: const Center(
+                child: Text(
+                  'لا توجد مباريات مجدولة في هذا اليوم.',
+                  style: TextStyle(color: Color(0xFF94A3B8)),
+                ),
+              ),
             )
           else
-            ...grouped.keys.map((lg) {
-              final arr = grouped[lg] as List;
-              return Container(
-                margin: const EdgeInsets.only(bottom: 12),
-                decoration: BoxDecoration(
-                    color: const Color(0xFF1E293B),
-                    borderRadius: BorderRadius.circular(14)),
-                child: Column(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: const BoxDecoration(
-                        color: Color(0xFF273549),
-                        borderRadius:
-                            BorderRadius.vertical(top: Radius.circular(14)),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text('🏆 $lg',
-                              style:
-                                  const TextStyle(fontWeight: FontWeight.bold)),
-                          Text('${arr.length}'),
-                        ],
-                      ),
-                    ),
-                    ...arr.map((item) {
-                      final m = item as Map;
-                      final st = m['status']?.toString() ?? 'NS';
-                      final isLive = ['LIVE', '1H', '2H', 'HT'].contains(st);
-                      final pulse = DateTime.now().second % 2 == 0;
-                      return InkWell(
-                        onTap: () => _openDetails(m),
-                        child: Padding(
-                          padding: const EdgeInsets.all(12),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                  child: Row(
-                                mainAxisAlignment: MainAxisAlignment.end,
-                                children: [
-                                  Flexible(
-                                      child: Text(m['home']?.toString() ?? '',
-                                          style: const TextStyle(
-                                              fontWeight: FontWeight.bold))),
-                                  const SizedBox(width: 8),
-                                  _logo(m['homeLogo']?.toString()),
-                                ],
-                              )),
-                              Container(
-                                margin:
-                                    const EdgeInsets.symmetric(horizontal: 10),
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 10, vertical: 6),
-                                decoration: BoxDecoration(
-                                    color: const Color(0xFF0F172A),
-                                    borderRadius: BorderRadius.circular(10)),
-                                child: Column(
-                                  children: [
-                                    Text(
-                                      st == 'NS'
-                                          ? _matchTime(m)
-                                          : '${m['scoreHome'] ?? 0} - ${m['scoreAway'] ?? 0}',
-                                      style: const TextStyle(
-                                          fontWeight: FontWeight.w900,
-                                          fontSize: 15),
-                                    ),
-                                    Text(
-                                      isLive
-                                          ? '${_liveMinute(m)}${pulse ? ' •' : ''}'
-                                          : (st == 'FT' ? 'انتهت' : 'لم تبدأ'),
-                                      style: TextStyle(
-                                          fontSize: 11,
-                                          color: isLive
-                                              ? Colors.redAccent
-                                              : Colors.grey),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              Expanded(
-                                  child: Row(
-                                children: [
-                                  _logo(m['awayLogo']?.toString()),
-                                  const SizedBox(width: 8),
-                                  Flexible(
-                                      child: Text(m['away']?.toString() ?? '',
-                                          style: const TextStyle(
-                                              fontWeight: FontWeight.bold))),
-                                ],
-                              )),
-                            ],
-                          ),
-                        ),
-                      );
-                    }),
-                  ],
-                ),
-              );
-            }),
+            ...sortedLeagues.map((lg) => _buildLeagueCard(lg, grouped[lg] as List)),
         ],
       ),
     );
   }
 
-  Widget _standingsTab() {
-    if (_standings.isEmpty) return const Center(child: Text('لا يوجد ترتيب'));
-    final keys = _standings.keys.map((e) => e.toString()).toList();
-    final rows = _standings[_standingLeague] is List
-        ? (_standings[_standingLeague] as List)
-        : [];
-    return ListView(
-      padding: const EdgeInsets.all(12),
-      children: [
-        DropdownButton<String>(
-          value: _standingLeague,
-          isExpanded: true,
-          items: keys
-              .map((k) => DropdownMenuItem(value: k, child: Text(k)))
-              .toList(),
-          onChanged: (v) => setState(() => _standingLeague = v),
-        ),
-        ...rows.map((r) => ListTile(
-              leading: Text('${r['rank']}'),
-              title: Text(r['team']?.toString() ?? ''),
-              trailing: Text('لعب ${r['played']} | ${r['points']} ن',
-                  style: const TextStyle(
-                      color: Color(0xFF22C55E), fontWeight: FontWeight.bold)),
-            )),
-      ],
+  Widget _buildWeekDaysStrip() {
+    const daysAr = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
+    return SizedBox(
+      height: 76,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: 10,
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemBuilder: (context, index) {
+          final offset = index - 2;
+          final date = DateTime.now().add(Duration(days: offset));
+          final iso = _toLocalIsoDate(date);
+          final label = offset == 0
+              ? 'اليوم'
+              : offset == 1
+                  ? 'غداً'
+                  : offset == -1
+                      ? 'أمس'
+                      : offset == -2
+                          ? 'أول أمس'
+                          : daysAr[date.weekday % 7];
+          final count = _matches.where((m) => m is Map && _getLocalMatchDate(m) == iso).length;
+          final isSelected = !_liveOnly && iso == _selectedLocalDate;
+
+          return GestureDetector(
+            onTap: () {
+              setState(() {
+                _selectedLocalDate = iso;
+                _liveOnly = false;
+              });
+            },
+            child: Container(
+              width: 86,
+              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
+              decoration: BoxDecoration(
+                color: isSelected ? const Color(0xFF2563EB) : const Color(0xFF1E293B),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: isSelected ? const Color(0xFF3B82F6) : const Color(0xFF334155),
+                ),
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                  Text(iso.substring(5), style: const TextStyle(fontSize: 11, color: Colors.white70)),
+                  const SizedBox(height: 2),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: Colors.black26,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text('$count', style: const TextStyle(fontSize: 11)),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
     );
   }
 
-  Widget _scorersTab() {
-    if (_scorers.isEmpty) return const Center(child: Text('لا يوجد هدافون'));
-    final keys = _scorers.keys.map((e) => e.toString()).toList();
-    final rows =
-        _scorers[_scorerLeague] is List ? (_scorers[_scorerLeague] as List) : [];
-    return ListView(
-      padding: const EdgeInsets.all(12),
-      children: [
-        DropdownButton<String>(
-          value: _scorerLeague,
-          isExpanded: true,
-          items: keys
-              .map((k) => DropdownMenuItem(value: k, child: Text(k)))
-              .toList(),
-          onChanged: (v) => setState(() => _scorerLeague = v),
-        ),
-        ...rows.map((r) => ListTile(
-              leading: Text('${r['rank']}'),
-              title: Text(r['player']?.toString() ?? ''),
-              subtitle: Text(r['team']?.toString() ?? ''),
-              trailing: Text('${r['goals']} هدف',
-                  style: const TextStyle(
-                      color: Color(0xFF22C55E), fontWeight: FontWeight.bold)),
-            )),
-      ],
-    );
-  }
-
-  Widget _newsTab() {
-    if (_news.isEmpty) return const Center(child: Text('لا توجد أخبار'));
-    return ListView.builder(
-      padding: const EdgeInsets.all(12),
-      itemCount: _news.length,
-      itemBuilder: (_, i) {
-        final n = _news[i];
-        return Card(
-          margin: const EdgeInsets.only(bottom: 10),
-          child: ListTile(
-            title: Text(n['title']?.toString() ?? '',
-                style: const TextStyle(fontWeight: FontWeight.bold)),
-            subtitle: Text(n['summary']?.toString() ?? ''),
+  Widget _buildLeagueCard(String leagueName, List leagueMatches) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E293B),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFF334155)),
+      ),
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: const BoxDecoration(
+              color: Color(0xFF273549),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(13)),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('🏆 $leagueName', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                Text('${leagueMatches.length}', style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12)),
+              ],
+            ),
           ),
-        );
-      },
+          ...leagueMatches.map((m) => _buildMatchRow(m as Map)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMatchRow(Map m) {
+    final status = m['status']?.toString() ?? 'NS';
+    final isLive = ['LIVE', '1H', '2H', 'HT'].contains(status);
+    final localTime = _getLocalMatchTime(m);
+    final channel = m['channel']?.toString() ?? '';
+    final commentator = m['commentator']?.toString() ?? '';
+    final stadium = m['stadium']?.toString() ?? '';
+    final pulse = DateTime.now().second % 2 == 0;
+
+    final meta = [
+      if (channel.isNotEmpty) '📺 $channel',
+      if (commentator.isNotEmpty) '🎙️ $commentator',
+      if (stadium.isNotEmpty) '🏟️ $stadium',
+    ];
+
+    return InkWell(
+      onTap: () => _openMatchDetailsSheet(m),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        decoration: const BoxDecoration(
+          border: Border(top: BorderSide(color: Color(0xFF334155), width: 0.6)),
+        ),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      Flexible(
+                        child: Text(
+                          m['home']?.toString() ?? '',
+                          textAlign: TextAlign.left,
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      _teamLogo(m['homeLogo']?.toString()),
+                    ],
+                  ),
+                ),
+                Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 10),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF0F172A),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: isLive ? Colors.redAccent : const Color(0xFF334155),
+                    ),
+                  ),
+                  child: Column(
+                    children: [
+                      if (status == 'NS')
+                        Text(localTime, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14))
+                      else
+                        Text(
+                          '${m['scoreHome'] ?? 0} - ${m['scoreAway'] ?? 0}',
+                          style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15),
+                        ),
+                      const SizedBox(height: 2),
+                      Text(
+                        isLive
+                            ? 'مباشر ${_computeLiveMinute(m)}${pulse ? ' •' : ''}'
+                            : status == 'FT'
+                                ? 'انتهت'
+                                : 'لم تبدأ',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: isLive
+                              ? Colors.redAccent
+                              : status == 'FT'
+                                  ? const Color(0xFF94A3B8)
+                                  : const Color(0xFF60A5FA),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.start,
+                    children: [
+                      _teamLogo(m['awayLogo']?.toString()),
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: Text(
+                          m['away']?.toString() ?? '',
+                          textAlign: TextAlign.right,
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            if (meta.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                meta.join(' • '),
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 11.5, color: Color(0xFF94A3B8)),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _teamLogo(String? url) {
+    if (url == null || url.isEmpty) {
+      return const CircleAvatar(
+        radius: 13,
+        backgroundColor: Color(0xFF334155),
+        child: Icon(Icons.shield, size: 15, color: Colors.white70),
+      );
+    }
+    return ClipOval(
+      child: Image.network(
+        url,
+        width: 26,
+        height: 26,
+        fit: BoxFit.contain,
+        errorBuilder: (_, __, ___) => const CircleAvatar(
+          radius: 13,
+          backgroundColor: Color(0xFF334155),
+          child: Icon(Icons.shield, size: 15, color: Colors.white70),
+        ),
+      ),
+    );
+  }
+
+  // ==================== 2. تبويب الترتيب ====================
+  Widget _buildStandingsTab() {
+    final leagueNames = _standings.keys.map((e) => e.toString()).toList();
+    if (leagueNames.isEmpty) {
+      return const Center(child: Text('لا تتوفر جداول ترتيب حالياً.'));
+    }
+
+    final rows = _standings[_selectedStandingLeague] is List
+        ? (_standings[_selectedStandingLeague] as List)
+        : [];
+
+    return RefreshIndicator(
+      onRefresh: () => _fetchAppData(),
+      child: ListView(
+        padding: const EdgeInsets.all(12),
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            decoration: BoxDecoration(
+              color: const Color(0xFF1E293B),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFF334155)),
+            ),
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<String>(
+                value: _selectedStandingLeague,
+                isExpanded: true,
+                dropdownColor: const Color(0xFF1E293B),
+                items: leagueNames
+                    .map((name) => DropdownMenuItem(value: name, child: Text(name)))
+                    .toList(),
+                onChanged: (val) => setState(() => _selectedStandingLeague = val),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Container(
+            decoration: BoxDecoration(
+              color: const Color(0xFF1E293B),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: const Color(0xFF334155)),
+            ),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: DataTable(
+                columnSpacing: 16,
+                columns: const [
+                  DataColumn(label: Text('#')),
+                  DataColumn(label: Text('الفريق')),
+                  DataColumn(label: Text('لعب')),
+                  DataColumn(label: Text('ف')),
+                  DataColumn(label: Text('ت')),
+                  DataColumn(label: Text('خ')),
+                  DataColumn(label: Text('أهداف')),
+                  DataColumn(label: Text('نقاط')),
+                ],
+                rows: rows.map((r) {
+                  return DataRow(cells: [
+                    DataCell(Text('${r['rank']}')),
+                    DataCell(Row(
+                      children: [
+                        _teamLogo(r['logo']?.toString()),
+                        const SizedBox(width: 8),
+                        Text(r['team']?.toString() ?? '',
+                            style: const TextStyle(fontWeight: FontWeight.bold)),
+                      ],
+                    )),
+                    DataCell(Text('${r['played']}')),
+                    DataCell(Text('${r['win']}')),
+                    DataCell(Text('${r['draw']}')),
+                    DataCell(Text('${r['lose']}')),
+                    DataCell(Text('${r['gf']}:${r['ga']}')),
+                    DataCell(Text('${r['points']}',
+                        style: const TextStyle(
+                            fontWeight: FontWeight.bold, color: Color(0xFF22C55E)))),
+                  ]);
+                }).toList(),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ==================== 3. تبويب الهدافين ====================
+  Widget _buildScorersTab() {
+    final leagueNames = _topScorers.keys.map((e) => e.toString()).toList();
+    if (leagueNames.isEmpty) {
+      return const Center(child: Text('لا تتوفر بيانات الهدافين حالياً.'));
+    }
+
+    final rows = _topScorers[_selectedScorerLeague] is List
+        ? (_topScorers[_selectedScorerLeague] as List)
+        : [];
+
+    return RefreshIndicator(
+      onRefresh: () => _fetchAppData(),
+      child: ListView(
+        padding: const EdgeInsets.all(12),
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            decoration: BoxDecoration(
+              color: const Color(0xFF1E293B),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFF334155)),
+            ),
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<String>(
+                value: _selectedScorerLeague,
+                isExpanded: true,
+                dropdownColor: const Color(0xFF1E293B),
+                items: leagueNames
+                    .map((name) => DropdownMenuItem(value: name, child: Text(name)))
+                    .toList(),
+                onChanged: (val) => setState(() => _selectedScorerLeague = val),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Container(
+            decoration: BoxDecoration(
+              color: const Color(0xFF1E293B),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: const Color(0xFF334155)),
+            ),
+            child: Column(
+              children: rows.map((r) {
+                return ListTile(
+                  leading: CircleAvatar(
+                    backgroundColor: const Color(0xFF0F172A),
+                    child: Text(
+                      '${r['rank']}',
+                      style: const TextStyle(
+                          color: Color(0xFF22C55E), fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  title: Text(r['player']?.toString() ?? '',
+                      style: const TextStyle(fontWeight: FontWeight.bold)),
+                  subtitle: Text(r['team']?.toString() ?? '',
+                      style: const TextStyle(color: Color(0xFF94A3B8))),
+                  trailing: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF22C55E).withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      '${r['goals']} هدف',
+                      style: const TextStyle(
+                          color: Color(0xFF22C55E),
+                          fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ==================== 4. تبويب الأخبار + التفاصيل والتعليقات ====================
+  void _openNewsDetailsSheet(Map item, int idx) {
+    final newsId = (item['id'] ?? idx).toString();
+    final img = (item['image'] ?? item['img'] ?? '').toString();
+    final nameCtrl = TextEditingController();
+    final commentCtrl = TextEditingController();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xFF1E293B),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setModalState) {
+          final serverComments = item['comments'] is List ? item['comments'] as List : [];
+          final userComments = _localNewsComments[newsId] ?? [];
+          final allComments = [...serverComments, ...userComments];
+
+          return Padding(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(ctx).viewInsets.bottom,
+            ),
+            child: DraggableScrollableSheet(
+              expand: false,
+              initialChildSize: 0.78,
+              maxChildSize: 0.94,
+              builder: (_, scrollCtrl) => Directionality(
+                textDirection: TextDirection.rtl,
+                child: ListView(
+                  controller: scrollCtrl,
+                  padding: const EdgeInsets.all(16),
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 40,
+                        height: 4,
+                        margin: const EdgeInsets.only(bottom: 12),
+                        decoration: BoxDecoration(
+                          color: Colors.white24,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ),
+                    ),
+                    if (img.isNotEmpty) ...[
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(14),
+                        child: Image.network(
+                          img,
+                          width: double.infinity,
+                          height: 200,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+                    Text(
+                      '${item['league'] ?? 'أخبار الرياضة'} • ${item['date'] ?? ''}',
+                      style: const TextStyle(
+                        color: Color(0xFF22C55E),
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      item['title']?.toString() ?? '',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                        height: 1.4,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      (item['content'] ?? item['summary'] ?? '').toString(),
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 14.5,
+                        height: 1.7,
+                      ),
+                    ),
+                    const Divider(height: 28, color: Color(0xFF334155)),
+                    Text(
+                      '💬 التعليقات (${allComments.length})',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    if (allComments.isEmpty)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 8),
+                        child: Text(
+                          'لا توجد تعليقات بعد. كن أول من يعلّق!',
+                          style: TextStyle(color: Color(0xFF94A3B8)),
+                        ),
+                      )
+                    else
+                      ...allComments.map((c) => Container(
+                            margin: const EdgeInsets.only(bottom: 8),
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF0F172A),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: const Color(0xFF334155)),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      '👤 ${c['author'] ?? 'زائر'}',
+                                      style: const TextStyle(
+                                        color: Color(0xFF22C55E),
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                    Text(
+                                      c['time']?.toString() ?? '',
+                                      style: const TextStyle(
+                                        color: Color(0xFF64748B),
+                                        fontSize: 11,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  c['text']?.toString() ?? '',
+                                  style: const TextStyle(fontSize: 13.5),
+                                ),
+                              ],
+                            ),
+                          )),
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF0F172A),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xFF334155)),
+                      ),
+                      child: Column(
+                        children: [
+                          TextField(
+                            controller: nameCtrl,
+                            decoration: const InputDecoration(
+                              hintText: 'اسمك (اختياري)',
+                              isDense: true,
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          TextField(
+                            controller: commentCtrl,
+                            maxLines: 2,
+                            decoration: const InputDecoration(
+                              hintText: 'اكتب تعليقك هنا...',
+                              isDense: true,
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF22C55E),
+                                foregroundColor: Colors.black,
+                              ),
+                              onPressed: () {
+                                final txt = commentCtrl.text.trim();
+                                if (txt.isEmpty) return;
+                                final now = DateTime.now();
+                                final timeStr =
+                                    '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+                                _localNewsComments.putIfAbsent(newsId, () => []).add({
+                                  'author': nameCtrl.text.trim().isEmpty
+                                      ? 'زائر'
+                                      : nameCtrl.text.trim(),
+                                  'text': txt,
+                                  'time': timeStr,
+                                });
+                                commentCtrl.clear();
+                                setModalState(() {});
+                                setState(() {});
+                              },
+                              child: const Text(
+                                'إرسال التعليق',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildNewsTab() {
+    if (_news.isEmpty) {
+      return const Center(child: Text('لا توجد أخبار منشورة حالياً.'));
+    }
+
+    return RefreshIndicator(
+      onRefresh: () => _fetchAppData(),
+      child: ListView.separated(
+        padding: const EdgeInsets.all(12),
+        itemCount: _news.length,
+        separatorBuilder: (_, __) => const SizedBox(height: 12),
+        itemBuilder: (context, idx) {
+          final item = _news[idx] as Map;
+          final newsId = (item['id'] ?? idx).toString();
+          final img = (item['image'] ?? item['img'] ?? '').toString();
+          final commentsCount =
+              (item['comments'] is List ? (item['comments'] as List).length : 0) +
+                  (_localNewsComments[newsId]?.length ?? 0);
+
+          return InkWell(
+            onTap: () => _openNewsDetailsSheet(item, idx),
+            borderRadius: BorderRadius.circular(14),
+            child: Container(
+              decoration: BoxDecoration(
+                color: const Color(0xFF1E293B),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0xFF334155)),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (img.isNotEmpty)
+                    Image.network(
+                      img,
+                      width: double.infinity,
+                      height: 180,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                    ),
+                  Padding(
+                    padding: const EdgeInsets.all(14),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          item['league']?.toString() ?? 'أخبار الرياضة',
+                          style: const TextStyle(
+                            color: Color(0xFF22C55E),
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          item['title']?.toString() ?? '',
+                          style: const TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 16),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          item['summary']?.toString() ?? '',
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                              color: Color(0xFF94A3B8), fontSize: 13.5),
+                        ),
+                        const SizedBox(height: 10),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              '📅 ${item['date'] ?? ''}',
+                              style: const TextStyle(
+                                  color: Color(0xFF64748B), fontSize: 12),
+                            ),
+                            Text(
+                              '💬 $commentsCount تعليق • اقرأ التفاصيل ›',
+                              style: const TextStyle(
+                                color: Color(0xFF22C55E),
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
     );
   }
 }
