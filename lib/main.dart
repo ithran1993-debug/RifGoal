@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:core';
+import 'dart:core' as core;
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
@@ -51,13 +53,13 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
   Timer? _secondTickTimer;
   Timer? _liveDetailsTimer;
 
-  Map<String, dynamic> _settings = {'siteTitle': 'ريف جول', 'announcement': ''};
+  core.Map<String, dynamic> _settings = {'siteTitle': 'ريف جول', 'announcement': ''};
   List<dynamic> _leagues = [];
   List<dynamic> _matches = [];
-  Map<String, dynamic> _standings = {};
-  Map<String, dynamic> _topScorers = {};
+  core.Map<String, dynamic> _standings = {};
+  core.Map<String, dynamic> _topScorers = {};
   List<dynamic> _news = [];
-  final Map<String, List>> _localNewsComments = {};
+  final core.Map<String, List<core.Map<String, String>>> _localNewsComments = {};
 
   late String _selectedLocalDate;
   late String _lastTodayIso;
@@ -108,7 +110,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
 
     final nowUtc = now.toUtc();
     for (final item in _matches) {
-      if (item is! Map) continue;
+      if (item is! core.Map) continue;
       final status = item['status']?.toString() ?? 'NS';
       if (status == 'NS' && item['timestamp'] != null) {
         final ts = item['timestamp'].toString();
@@ -222,7 +224,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
     final todayIso = _toLocalIsoDate(DateTime.now());
     final liveList = _matches
         .where((m) =>
-            m is Map &&
+            m is core.Map &&
             _getLocalMatchDate(m) == todayIso &&
             ['LIVE', '1H', '2H', 'HT'].contains(m['status']))
         .take(15)
@@ -282,16 +284,16 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
         final decoded = jsonDecode(utf8.decode(response.bodyBytes));
         if (!mounted) return;
         setState(() {
-          _settings = decoded['settings'] is Map
-              ? Map<String, dynamic>.from(decoded['settings'])
+          _settings = decoded['settings'] is core.Map
+              ? core.Map<String, dynamic>.from(decoded['settings'])
               : _settings;
           _leagues = decoded['leagues'] is List ? decoded['leagues'] : [];
           _matches = decoded['matches'] is List ? decoded['matches'] : [];
-          _standings = decoded['standings'] is Map
-              ? Map<String, dynamic>.from(decoded['standings'])
+          _standings = decoded['standings'] is core.Map
+              ? core.Map<String, dynamic>.from(decoded['standings'])
               : {};
-          _topScorers = decoded['topScorers'] is Map
-              ? Map<String, dynamic>.from(decoded['topScorers'])
+          _topScorers = decoded['topScorers'] is core.Map
+              ? core.Map<String, dynamic>.from(decoded['topScorers'])
               : {};
           _news = decoded['news'] is List ? decoded['news'] : [];
 
@@ -636,23 +638,23 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
 
   Widget _buildMatchesTab() {
     final liveMatches = _matches
-        .where((m) => m is Map && ['LIVE', '1H', '2H', 'HT'].contains(m['status']))
+        .where((m) => m is core.Map && ['LIVE', '1H', '2H', 'HT'].contains(m['status']))
         .toList();
     final displayedMatches = _liveOnly
         ? liveMatches
         : _matches
-            .where((m) => m is Map && _getLocalMatchDate(m) == _selectedLocalDate)
+            .where((m) => m is core.Map && _getLocalMatchDate(m) == _selectedLocalDate)
             .toList();
 
-    final Map<String, List<dynamic>> grouped = {};
+    final core.Map<String, List<dynamic>> grouped = {};
     for (final m in displayedMatches) {
       final lg = m['league']?.toString() ?? 'بطولات متنوعة';
       grouped.putIfAbsent(lg, () => []).add(m);
     }
 
-    final Map<String, int> orderMap = {};
+    final core.Map<String, int> orderMap = {};
     for (final l in _leagues) {
-      if (l is Map && l['name'] != null) {
+      if (l is core.Map && l['name'] != null) {
         orderMap[l['name'].toString()] = (l['order'] as num?)?.toInt() ?? 99;
       }
     }
@@ -749,7 +751,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
                       : offset == -2
                           ? 'أول أمس'
                           : daysAr[date.weekday % 7];
-          final count = _matches.where((m) => m is Map && _getLocalMatchDate(m) == iso).length;
+          final count = _matches.where((m) => m is core.Map && _getLocalMatchDate(m) == iso).length;
           final isSelected = !_liveOnly && iso == _selectedLocalDate;
 
           return GestureDetector(
