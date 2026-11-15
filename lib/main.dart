@@ -51,12 +51,12 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
   Timer? _secondTickTimer;
   Timer? _liveDetailsTimer;
 
-  Map _settings = {'siteTitle': 'ريف جول', 'announcement': ''};
-  List _leagues = [];
-  List _matches = [];
-  Map _standings = {};
-  Map _topScorers = {};
-  List _news = [];
+  Map<String, dynamic> _settings = {'siteTitle': 'ريف جول', 'announcement': ''};
+  List<dynamic> _leagues = [];
+  List<dynamic> _matches = [];
+  Map<String, dynamic> _standings = {};
+  Map<String, dynamic> _topScorers = {};
+  List<dynamic> _news = [];
   final Map<String, List>> _localNewsComments = {};
 
   late String _selectedLocalDate;
@@ -107,18 +107,18 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
     }
 
     final nowUtc = now.toUtc();
-    for (final m in _matches) {
-      if (m is! Map) continue;
-      final status = m['status']?.toString() ?? 'NS';
-      if (status == 'NS' && m['timestamp'] != null) {
-        final ts = m['timestamp'].toString();
+    for (final item in _matches) {
+      if (item is! Map) continue;
+      final status = item['status']?.toString() ?? 'NS';
+      if (status == 'NS' && item['timestamp'] != null) {
+        final ts = item['timestamp'].toString();
         final start = DateTime.tryParse(ts.endsWith('Z') ? ts : '${ts}Z');
         if (start != null &&
             nowUtc.isAfter(start) &&
             nowUtc.difference(start).inHours < 2) {
-          m['status'] = 'LIVE';
-          m['scoreHome'] ??= 0;
-          m['scoreAway'] ??= 0;
+          item['status'] = 'LIVE';
+          item['scoreHome'] ??= 0;
+          item['scoreAway'] ??= 0;
           needsRebuild = true;
         }
       } else if (['LIVE', '1H', '2H', 'HT'].contains(status)) {
@@ -129,7 +129,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
     if (needsRebuild) setState(() {});
   }
 
-  String _computeLiveMinute(Map m) {
+  String _computeLiveMinute(dynamic m) {
     final rawMin = (m['minute'] ?? '').toString();
     if (rawMin.contains('+')) return rawMin;
     final ts = (m['timestamp'] ?? '').toString();
@@ -146,7 +146,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
     return rawMin;
   }
 
-  Future<void> _fetchSingleMatchDetails(Map m) async {
+  Future<void> _fetchSingleMatchDetails(dynamic m) async {
     final id = m['id']?.toString();
     if (id == null || id.isEmpty) return;
 
@@ -230,7 +230,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
 
     if (liveList.isEmpty) return;
     for (final m in liveList) {
-      await _fetchSingleMatchDetails(m as Map);
+      await _fetchSingleMatchDetails(m);
     }
     if (mounted) setState(() {});
   }
@@ -243,7 +243,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
     return '$y-$m-$d';
   }
 
-  String _getLocalMatchDate(Map match) {
+  String _getLocalMatchDate(dynamic match) {
     final ts = match['timestamp']?.toString();
     if (ts != null && ts.isNotEmpty) {
       final parsed = DateTime.tryParse(ts.endsWith('Z') ? ts : '${ts}Z');
@@ -252,7 +252,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
     return match['date']?.toString() ?? _selectedLocalDate;
   }
 
-  String _getLocalMatchTime(Map match) {
+  String _getLocalMatchTime(dynamic match) {
     final ts = match['timestamp']?.toString();
     if (ts != null && ts.isNotEmpty) {
       final parsed =
@@ -282,22 +282,28 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
         final decoded = jsonDecode(utf8.decode(response.bodyBytes));
         if (!mounted) return;
         setState(() {
-          _settings = decoded['settings'] is Map ? decoded['settings'] : _settings;
+          _settings = decoded['settings'] is Map
+              ? Map<String, dynamic>.from(decoded['settings'])
+              : _settings;
           _leagues = decoded['leagues'] is List ? decoded['leagues'] : [];
           _matches = decoded['matches'] is List ? decoded['matches'] : [];
-          _standings = decoded['standings'] is Map ? decoded['standings'] : {};
-          _topScorers = decoded['topScorers'] is Map ? decoded['topScorers'] : {};
+          _standings = decoded['standings'] is Map
+              ? Map<String, dynamic>.from(decoded['standings'])
+              : {};
+          _topScorers = decoded['topScorers'] is Map
+              ? Map<String, dynamic>.from(decoded['topScorers'])
+              : {};
           _news = decoded['news'] is List ? decoded['news'] : [];
 
           if (_standings.isNotEmpty &&
               (_selectedStandingLeague == null ||
                   !_standings.containsKey(_selectedStandingLeague))) {
-            _selectedStandingLeague = _standings.keys.first.toString();
+            _selectedStandingLeague = _standings.keys.first;
           }
           if (_topScorers.isNotEmpty &&
               (_selectedScorerLeague == null ||
                   !_topScorers.containsKey(_selectedScorerLeague))) {
-            _selectedScorerLeague = _topScorers.keys.first.toString();
+            _selectedScorerLeague = _topScorers.keys.first;
           }
           _isLoading = false;
         });
@@ -315,17 +321,17 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
     }
   }
 
-  void _openMatchDetailsSheet(Map m) async {
+  void _openMatchDetailsSheet(dynamic m) async {
     await _fetchSingleMatchDetails(m);
     if (!mounted) return;
     setState(() {});
 
-    final d = m['details'] is Map ? m['details'] : {};
-    final events = d['events'] is List ? d['events'] : [];
-    final stats = d['stats'] is List ? d['stats'] : [];
-    final lineups = d['lineups'] is Map ? d['lineups'] : {};
-    final homeStarters = lineups['home'] is List ? lineups['home'] : [];
-    final awayStarters = lineups['away'] is List ? lineups['away'] : [];
+    final d = m['details'] ?? {};
+    final events = d['events'] is List ? d['events'] as List : [];
+    final stats = d['stats'] is List ? d['stats'] as List : [];
+    final lineups = d['lineups'] ?? {};
+    final homeStarters = lineups['home'] is List ? lineups['home'] as List : [];
+    final awayStarters = lineups['away'] is List ? lineups['away'] as List : [];
 
     showModalBottomSheet(
       context: context,
@@ -628,7 +634,6 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
     );
   }
 
-  // ==================== 1. تبويب المباريات ====================
   Widget _buildMatchesTab() {
     final liveMatches = _matches
         .where((m) => m is Map && ['LIVE', '1H', '2H', 'HT'].contains(m['status']))
@@ -639,20 +644,20 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
             .where((m) => m is Map && _getLocalMatchDate(m) == _selectedLocalDate)
             .toList();
 
-    final Map grouped = {};
+    final Map<String, List<dynamic>> grouped = {};
     for (final m in displayedMatches) {
       final lg = m['league']?.toString() ?? 'بطولات متنوعة';
       grouped.putIfAbsent(lg, () => []).add(m);
     }
 
-    final Map orderMap = {};
+    final Map<String, int> orderMap = {};
     for (final l in _leagues) {
       if (l is Map && l['name'] != null) {
         orderMap[l['name'].toString()] = (l['order'] as num?)?.toInt() ?? 99;
       }
     }
-    final sortedLeagues = grouped.keys.map((e) => e.toString()).toList()
-      ..sort((a, b) => ((orderMap[a] ?? 99) as int).compareTo((orderMap[b] ?? 99) as int));
+    final sortedLeagues = grouped.keys.toList()
+      ..sort((a, b) => (orderMap[a] ?? 99).compareTo(orderMap[b] ?? 99));
 
     return RefreshIndicator(
       onRefresh: () async {
@@ -717,7 +722,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
               ),
             )
           else
-            ...sortedLeagues.map((lg) => _buildLeagueCard(lg, grouped[lg] as List)),
+            ...sortedLeagues.map((lg) => _buildLeagueCard(lg, grouped[lg]!)),
         ],
       ),
     );
@@ -787,7 +792,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
     );
   }
 
-  Widget _buildLeagueCard(String leagueName, List leagueMatches) {
+  Widget _buildLeagueCard(String leagueName, List<dynamic> leagueMatches) {
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
       decoration: BoxDecoration(
@@ -811,13 +816,13 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
               ],
             ),
           ),
-          ...leagueMatches.map((m) => _buildMatchRow(m as Map)),
+          ...leagueMatches.map((m) => _buildMatchRow(m)),
         ],
       ),
     );
   }
 
-  Widget _buildMatchRow(Map m) {
+  Widget _buildMatchRow(dynamic m) {
     final status = m['status']?.toString() ?? 'NS';
     final isLive = ['LIVE', '1H', '2H', 'HT'].contains(status);
     final localTime = _getLocalMatchTime(m);
@@ -826,7 +831,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
     final stadium = m['stadium']?.toString() ?? '';
     final pulse = DateTime.now().second % 2 == 0;
 
-    final meta = [
+    final meta = <String>[
       if (channel.isNotEmpty) '📺 $channel',
       if (commentator.isNotEmpty) '🎙️ $commentator',
       if (stadium.isNotEmpty) '🏟️ $stadium',
@@ -953,14 +958,13 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
     );
   }
 
-  // ==================== 2. تبويب الترتيب ====================
   Widget _buildStandingsTab() {
-    final leagueNames = _standings.keys.map((e) => e.toString()).toList();
+    final leagueNames = _standings.keys.toList();
     if (leagueNames.isEmpty) {
       return const Center(child: Text('لا تتوفر جداول ترتيب حالياً.'));
     }
 
-    final rows = _standings[_selectedStandingLeague] is List
+    final rows = (_standings[_selectedStandingLeague] is List)
         ? (_standings[_selectedStandingLeague] as List)
         : [];
 
@@ -1038,14 +1042,13 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
     );
   }
 
-  // ==================== 3. تبويب الهدافين ====================
   Widget _buildScorersTab() {
-    final leagueNames = _topScorers.keys.map((e) => e.toString()).toList();
+    final leagueNames = _topScorers.keys.toList();
     if (leagueNames.isEmpty) {
       return const Center(child: Text('لا تتوفر بيانات الهدافين حالياً.'));
     }
 
-    final rows = _topScorers[_selectedScorerLeague] is List
+    final rows = (_topScorers[_selectedScorerLeague] is List)
         ? (_topScorers[_selectedScorerLeague] as List)
         : [];
 
@@ -1118,8 +1121,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
     );
   }
 
-  // ==================== 4. تبويب الأخبار + التفاصيل والتعليقات ====================
-  void _openNewsDetailsSheet(Map item, int idx) {
+  void _openNewsDetailsSheet(dynamic item, int idx) {
     final newsId = (item['id'] ?? idx).toString();
     final img = (item['image'] ?? item['img'] ?? '').toString();
     final nameCtrl = TextEditingController();
@@ -1344,7 +1346,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
         itemCount: _news.length,
         separatorBuilder: (_, __) => const SizedBox(height: 12),
         itemBuilder: (context, idx) {
-          final item = _news[idx] as Map;
+          final item = _news[idx];
           final newsId = (item['id'] ?? idx).toString();
           final img = (item['image'] ?? item['img'] ?? '').toString();
           final commentsCount =
