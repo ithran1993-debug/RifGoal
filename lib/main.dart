@@ -71,19 +71,16 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
     _selectedLocalDate = _lastTodayIso;
     _fetchAppData();
 
-    // 1. تحديث القائمة المعتمدة من GitHub كل 60 ثانية
     _autoRefreshTimer = Timer.periodic(
       const Duration(seconds: 60),
       (_) => _fetchAppData(silent: true),
     );
 
-    // 2. عدّاد لحظي كل 1 ثانية لتحريك الدقائق الحية وتجديد شريط الأيام عند منتصف الليل
     _secondTickTimer = Timer.periodic(
       const Duration(seconds: 1),
       (_) => _onSecondTick(),
     );
 
-    // 3. تحديث فوري للأهداف والنتائج والتفاصيل من FotMob كل 15 ثانية للمباريات الجارية
     _liveDetailsTimer = Timer.periodic(
       const Duration(seconds: 15),
       (_) => _pollLiveMatchesFromFotMob(),
@@ -104,14 +101,12 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
     final todayIso = _toLocalIsoDate(now);
     bool needsRebuild = false;
 
-    // تجديد شريط الأيام تلقائياً عند دخول يوم جديد
     if (todayIso != _lastTodayIso) {
       _lastTodayIso = todayIso;
       _selectedLocalDate = todayIso;
       needsRebuild = true;
     }
 
-    // تفعيل حالة LIVE تلقائياً عند حلول موعد المباراة + تحديث الدقائق الحية
     final nowUtc = now.toUtc();
     for (final m in _matches) {
       final status = m['status']?.toString() ?? 'NS';
@@ -131,9 +126,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
       }
     }
 
-    if (needsRebuild) {
-      setState(() {});
-    }
+    if (needsRebuild) setState(() {});
   }
 
   String _computeLiveMinute(Map<String, dynamic> m) {
@@ -653,7 +646,6 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
     );
   }
 
-  // ==================== 1. تبويب المباريات ====================
   Widget _buildMatchesTab() {
     final liveMatches = _matches
         .where((m) => ['LIVE', '1H', '2H', 'HT'].contains(m['status']))
@@ -664,17 +656,18 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
             .where((m) => _getLocalMatchDate(m) == _selectedLocalDate)
             .toList();
 
-    final Map<String, List>> grouped = {};
+    final grouped = <String, List>>{};
     for (final m in displayedMatches) {
       final lg = m['league']?.toString() ?? 'بطولات متنوعة';
       grouped.putIfAbsent(lg, () => []).add(m);
     }
 
-    final Map<String, int> orderMap = {
-      for (final l in _leagues)
-        if (l['name'] != null)
-          l['name'].toString(): (l['order'] as num?)?.toInt() ?? 99
-    };
+    final orderMap = <String, int>{};
+    for (final l in _leagues) {
+      if (l is Map && l['name'] != null) {
+        orderMap[l['name'].toString()] = (l['order'] as num?)?.toInt() ?? 99;
+      }
+    }
     final sortedLeagues = grouped.keys.toList()
       ..sort((a, b) => (orderMap[a] ?? 99).compareTo(orderMap[b] ?? 99));
 
@@ -753,10 +746,10 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
       height: 76,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
-        itemCount: 10, // 10 أيام كاملة: أمسين + اليوم + 7 أيام قادمة (تشمل الجمعة والسبت والأحد)
+        itemCount: 10,
         separatorBuilder: (_, __) => const SizedBox(width: 8),
         itemBuilder: (context, index) {
-          final offset = index - 2; // -2 أول أمس، -1 أمس، 0 اليوم، +1..+7 الأيام القادمة
+          final offset = index - 2;
           final date = DateTime.now().add(Duration(days: offset));
           final iso = _toLocalIsoDate(date);
           final label = offset == 0
@@ -977,14 +970,13 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
     );
   }
 
-  // ==================== 2. تبويب الترتيب ====================
   Widget _buildStandingsTab() {
     final leagueNames = _standings.keys.toList();
     if (leagueNames.isEmpty) {
       return const Center(child: Text('لا تتوفر جداول ترتيب حالياً.'));
     }
 
-    final rows = List<dynamic>.from(_standings[_selectedStandingLeague] ?? []);
+    final rows = (_standings[_selectedStandingLeague] as List?) ?? [];
 
     return RefreshIndicator(
       onRefresh: () => _fetchAppData(),
@@ -1060,14 +1052,13 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
     );
   }
 
-  // ==================== 3. تبويب الهدافين ====================
   Widget _buildScorersTab() {
     final leagueNames = _topScorers.keys.toList();
     if (leagueNames.isEmpty) {
       return const Center(child: Text('لا تتوفر بيانات الهدافين حالياً.'));
     }
 
-    final rows = List<dynamic>.from(_topScorers[_selectedScorerLeague] ?? []);
+    final rows = (_topScorers[_selectedScorerLeague] as List?) ?? [];
 
     return RefreshIndicator(
       onRefresh: () => _fetchAppData(),
@@ -1138,7 +1129,6 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
     );
   }
 
-  // ==================== 4. تبويب الأخبار ====================
   Widget _buildNewsTab() {
     if (_news.isEmpty) {
       return const Center(child: Text('لا توجد أخبار منشورة حالياً.'));
