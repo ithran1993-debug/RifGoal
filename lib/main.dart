@@ -1121,6 +1121,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
     );
   }
 
+  // ==================== 4. تبويب الأخبار (الصورة كاملة + العنوان فقط في الخارج) ====================
   void _openNewsDetailsSheet(dynamic item, int idx) {
     final newsId = (item['id'] ?? idx).toString();
     final img = (item['image'] ?? item['img'] ?? '').toString();
@@ -1171,8 +1172,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
                         child: Image.network(
                           img,
                           width: double.infinity,
-                          height: 200,
-                          fit: BoxFit.cover,
+                          fit: BoxFit.fitWidth,
                           errorBuilder: (_, __, ___) => const SizedBox.shrink(),
                         ),
                       ),
@@ -1370,8 +1370,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
                     Image.network(
                       img,
                       width: double.infinity,
-                      height: 180,
-                      fit: BoxFit.cover,
+                      fit: BoxFit.fitWidth,
                       errorBuilder: (_, __, ___) => const SizedBox.shrink(),
                     ),
                   Padding(
@@ -1393,14 +1392,6 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
                           style: const TextStyle(
                               fontWeight: FontWeight.bold, fontSize: 16),
                         ),
-                        const SizedBox(height: 6),
-                        Text(
-                          item['summary']?.toString() ?? '',
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                              color: Color(0xFF94A3B8), fontSize: 13.5),
-                        ),
                         const SizedBox(height: 10),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1411,7 +1402,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
                                   color: Color(0xFF64748B), fontSize: 12),
                             ),
                             Text(
-                              '💬 $commentsCount تعليق • اقرأ التفاصيل ›',
+                              '💬 $commentsCount • اقرأ التفاصيل ›',
                               style: const TextStyle(
                                 color: Color(0xFF22C55E),
                                 fontSize: 12,
