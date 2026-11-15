@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:core' as core;
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
@@ -41,47 +42,51 @@ class MainHomeScreen extends StatefulWidget {
 }
 
 class _MainHomeScreenState extends State<MainHomeScreen> {
-  static const String dataUrl =
+  static const core.String dataUrl =
       'https://ithran1993-debug.github.io/rifkoora/app_data.json';
 
-  int _currentIndex = 0;
-  bool _isLoading = true;
-  String? _errorMsg;
+  core.int _currentIndex = 0;
+  core.bool _isLoading = true;
+  core.String? _errorMsg;
   Timer? _autoRefreshTimer;
   Timer? _secondTickTimer;
   Timer? _liveDetailsTimer;
 
-  Map<String, dynamic> _settings = {'siteTitle': 'ريف جول', 'announcement': ''};
-  List<dynamic> _leagues = [];
-  List<dynamic> _matches = [];
-  Map<String, dynamic> _standings = {};
-  Map<String, dynamic> _topScorers = {};
-  List<dynamic> _news = [];
-  final Map<String, List>> _localNewsComments = {};
+  core.Map<core.String, dynamic> _settings = {
+    'siteTitle': 'ريف جول',
+    'announcement': ''
+  };
+  core.List<dynamic> _leagues = [];
+  core.List<dynamic> _matches = [];
+  core.Map<core.String, dynamic> _standings = {};
+  core.Map<core.String, dynamic> _topScorers = {};
+  core.List<dynamic> _news = [];
+  final core.Map<core.String, core.List<core.Map<core.String, core.String>>>
+      _localNewsComments = {};
 
-  late String _selectedLocalDate;
-  late String _lastTodayIso;
-  bool _liveOnly = false;
-  String? _selectedStandingLeague;
-  String? _selectedScorerLeague;
+  late core.String _selectedLocalDate;
+  late core.String _lastTodayIso;
+  core.bool _liveOnly = false;
+  core.String? _selectedStandingLeague;
+  core.String? _selectedScorerLeague;
 
   @override
   void initState() {
     super.initState();
-    _lastTodayIso = _toLocalIsoDate(DateTime.now());
+    _lastTodayIso = _toLocalIsoDate(core.DateTime.now());
     _selectedLocalDate = _lastTodayIso;
     _fetchAppData();
 
     _autoRefreshTimer = Timer.periodic(
-      const Duration(seconds: 60),
+      const core.Duration(seconds: 60),
       (_) => _fetchAppData(silent: true),
     );
     _secondTickTimer = Timer.periodic(
-      const Duration(seconds: 1),
+      const core.Duration(seconds: 1),
       (_) => _onSecondTick(),
     );
     _liveDetailsTimer = Timer.periodic(
-      const Duration(seconds: 15),
+      const core.Duration(seconds: 15),
       (_) => _pollLiveMatchesFromFotMob(),
     );
   }
@@ -96,9 +101,9 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
 
   void _onSecondTick() {
     if (!mounted) return;
-    final now = DateTime.now();
+    final now = core.DateTime.now();
     final todayIso = _toLocalIsoDate(now);
-    bool needsRebuild = false;
+    core.bool needsRebuild = false;
 
     if (todayIso != _lastTodayIso) {
       _lastTodayIso = todayIso;
@@ -108,11 +113,12 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
 
     final nowUtc = now.toUtc();
     for (final item in _matches) {
-      if (item is! Map) continue;
+      if (item is! core.Map) continue;
       final status = item['status']?.toString() ?? 'NS';
       if (status == 'NS' && item['timestamp'] != null) {
         final ts = item['timestamp'].toString();
-        final start = DateTime.tryParse(ts.endsWith('Z') ? ts : '${ts}Z');
+        final start =
+            core.DateTime.tryParse(ts.endsWith('Z') ? ts : '${ts}Z');
         if (start != null &&
             nowUtc.isAfter(start) &&
             nowUtc.difference(start).inHours < 2) {
@@ -129,14 +135,14 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
     if (needsRebuild) setState(() {});
   }
 
-  String _computeLiveMinute(dynamic m) {
+  core.String _computeLiveMinute(dynamic m) {
     final rawMin = (m['minute'] ?? '').toString();
     if (rawMin.contains('+')) return rawMin;
     final ts = (m['timestamp'] ?? '').toString();
     if (ts.isEmpty) return rawMin.isNotEmpty ? rawMin : '';
-    final start = DateTime.tryParse(ts.endsWith('Z') ? ts : '${ts}Z');
+    final start = core.DateTime.tryParse(ts.endsWith('Z') ? ts : '${ts}Z');
     if (start == null) return rawMin;
-    final diffMin = DateTime.now().toUtc().difference(start).inMinutes;
+    final diffMin = core.DateTime.now().toUtc().difference(start).inMinutes;
     if (diffMin < 0) return '';
     if (diffMin <= 45) return "${diffMin < 1 ? 1 : diffMin}'";
     if (diffMin <= 60) return 'استراحة';
@@ -151,18 +157,18 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
     if (id == null || id.isEmpty) return;
 
     try {
-      final uri = Uri.parse(
+      final uri = core.Uri.parse(
         'https://www.fotmob.com/api/matchDetails?matchId=$id&ccode3=MAR',
       );
       final res = await http.get(uri, headers: {
         'Accept-Language': 'ar-MA,ar;q=0.9',
         'Cookie': 'fotmob_lang=ar; ccode3=MAR',
-      }).timeout(const Duration(seconds: 10));
+      }).timeout(const core.Duration(seconds: 10));
 
       if (res.statusCode != 200) return;
       final json = jsonDecode(utf8.decode(res.bodyBytes));
       final header = json['header'] ?? {};
-      final teams = header['teams'] is List ? header['teams'] : [];
+      final teams = header['teams'] is core.List ? header['teams'] : [];
       final statusObj = header['status'] ?? {};
 
       if (teams.length >= 2) {
@@ -178,8 +184,9 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
       final rawEvents = content['matchFacts']?['events']?['events'] ?? [];
       final infoBox = content['matchFacts']?['infoBox'] ?? {};
       final topStats = content['stats']?['Periods']?['All']?['stats'] ?? [];
-      final statsItems =
-          (topStats is List && topStats.isNotEmpty) ? (topStats[0]['stats'] ?? []) : [];
+      final statsItems = (topStats is core.List && topStats.isNotEmpty)
+          ? (topStats[0]['stats'] ?? [])
+          : [];
       final lineup = content['lineup'] ?? {};
 
       final stadiumName = infoBox['Stadium']?['name']?.toString() ?? '';
@@ -188,7 +195,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
       m['details'] = {
         'stadium': stadiumName,
         'referee': infoBox['Referee']?['text']?.toString() ?? '',
-        'events': (rawEvents is List ? rawEvents : [])
+        'events': (rawEvents is core.List ? rawEvents : [])
             .where((e) => e['type'] == 'Goal' || e['type'] == 'Card')
             .map((e) => {
                   'time': e['timeStr'] ?? "${e['time']}'",
@@ -199,18 +206,26 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
                   'isHome': e['isHome'] == true,
                 })
             .toList(),
-        'stats': (statsItems is List ? statsItems : [])
+        'stats': (statsItems is core.List ? statsItems : [])
             .map((s) => {
                   'title': s['title'] ?? '',
-                  'home': (s['stats'] is List && s['stats'].isNotEmpty) ? s['stats'][0] : '',
-                  'away': (s['stats'] is List && s['stats'].length > 1) ? s['stats'][1] : '',
+                  'home': (s['stats'] is core.List && s['stats'].isNotEmpty)
+                      ? s['stats'][0]
+                      : '',
+                  'away': (s['stats'] is core.List && s['stats'].length > 1)
+                      ? s['stats'][1]
+                      : '',
                 })
             .toList(),
         'lineups': {
-          'home': (lineup['homeTeam']?['starters'] is List ? lineup['homeTeam']['starters'] : [])
+          'home': (lineup['homeTeam']?['starters'] is core.List
+                  ? lineup['homeTeam']['starters']
+                  : [])
               .map((p) => {'number': p['shirtNumber'], 'name': p['name']})
               .toList(),
-          'away': (lineup['awayTeam']?['starters'] is List ? lineup['awayTeam']['starters'] : [])
+          'away': (lineup['awayTeam']?['starters'] is core.List
+                  ? lineup['awayTeam']['starters']
+                  : [])
               .map((p) => {'number': p['shirtNumber'], 'name': p['name']})
               .toList(),
         }
@@ -219,10 +234,10 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
   }
 
   Future<void> _pollLiveMatchesFromFotMob() async {
-    final todayIso = _toLocalIsoDate(DateTime.now());
+    final todayIso = _toLocalIsoDate(core.DateTime.now());
     final liveList = _matches
         .where((m) =>
-            m is Map &&
+            m is core.Map &&
             _getLocalMatchDate(m) == todayIso &&
             ['LIVE', '1H', '2H', 'HT'].contains(m['status']))
         .take(15)
@@ -235,7 +250,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
     if (mounted) setState(() {});
   }
 
-  String _toLocalIsoDate(DateTime dt) {
+  core.String _toLocalIsoDate(core.DateTime dt) {
     final local = dt.toLocal();
     final y = local.year.toString().padLeft(4, '0');
     final m = local.month.toString().padLeft(2, '0');
@@ -243,20 +258,20 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
     return '$y-$m-$d';
   }
 
-  String _getLocalMatchDate(dynamic match) {
+  core.String _getLocalMatchDate(dynamic match) {
     final ts = match['timestamp']?.toString();
     if (ts != null && ts.isNotEmpty) {
-      final parsed = DateTime.tryParse(ts.endsWith('Z') ? ts : '${ts}Z');
+      final parsed = core.DateTime.tryParse(ts.endsWith('Z') ? ts : '${ts}Z');
       if (parsed != null) return _toLocalIsoDate(parsed);
     }
     return match['date']?.toString() ?? _selectedLocalDate;
   }
 
-  String _getLocalMatchTime(dynamic match) {
+  core.String _getLocalMatchTime(dynamic match) {
     final ts = match['timestamp']?.toString();
     if (ts != null && ts.isNotEmpty) {
       final parsed =
-          DateTime.tryParse(ts.endsWith('Z') ? ts : '${ts}Z')?.toLocal();
+          core.DateTime.tryParse(ts.endsWith('Z') ? ts : '${ts}Z')?.toLocal();
       if (parsed != null) {
         final h = parsed.hour.toString().padLeft(2, '0');
         final m = parsed.minute.toString().padLeft(2, '0');
@@ -266,7 +281,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
     return match['time']?.toString() ?? '20:00';
   }
 
-  Future<void> _fetchAppData({bool silent = false}) async {
+  Future<void> _fetchAppData({core.bool silent = false}) async {
     if (!silent) {
       setState(() {
         _isLoading = true;
@@ -275,25 +290,27 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
     }
 
     try {
-      final uri = Uri.parse('$dataUrl?t=${DateTime.now().millisecondsSinceEpoch}');
-      final response = await http.get(uri).timeout(const Duration(seconds: 15));
+      final uri = core.Uri.parse(
+          '$dataUrl?t=${core.DateTime.now().millisecondsSinceEpoch}');
+      final response =
+          await http.get(uri).timeout(const core.Duration(seconds: 15));
 
       if (response.statusCode == 200) {
         final decoded = jsonDecode(utf8.decode(response.bodyBytes));
         if (!mounted) return;
         setState(() {
-          _settings = decoded['settings'] is Map
-              ? Map<String, dynamic>.from(decoded['settings'])
+          _settings = decoded['settings'] is core.Map
+              ? core.Map<core.String, dynamic>.from(decoded['settings'])
               : _settings;
-          _leagues = decoded['leagues'] is List ? decoded['leagues'] : [];
-          _matches = decoded['matches'] is List ? decoded['matches'] : [];
-          _standings = decoded['standings'] is Map
-              ? Map<String, dynamic>.from(decoded['standings'])
+          _leagues = decoded['leagues'] is core.List ? decoded['leagues'] : [];
+          _matches = decoded['matches'] is core.List ? decoded['matches'] : [];
+          _standings = decoded['standings'] is core.Map
+              ? core.Map<core.String, dynamic>.from(decoded['standings'])
               : {};
-          _topScorers = decoded['topScorers'] is Map
-              ? Map<String, dynamic>.from(decoded['topScorers'])
+          _topScorers = decoded['topScorers'] is core.Map
+              ? core.Map<core.String, dynamic>.from(decoded['topScorers'])
               : {};
-          _news = decoded['news'] is List ? decoded['news'] : [];
+          _news = decoded['news'] is core.List ? decoded['news'] : [];
 
           if (_standings.isNotEmpty &&
               (_selectedStandingLeague == null ||
@@ -310,13 +327,15 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
 
         _pollLiveMatchesFromFotMob();
       } else {
-        throw Exception('HTTP ${response.statusCode}');
+        throw core.Exception('HTTP ${response.statusCode}');
       }
     } catch (e) {
       if (!mounted) return;
       setState(() {
         _isLoading = false;
-        if (!silent) _errorMsg = 'تعذر تحديث البيانات، اسحب للأسفل للمحاولة مجدداً.';
+        if (!silent) {
+          _errorMsg = 'تعذر تحديث البيانات، اسحب للأسفل للمحاولة مجدداً.';
+        }
       });
     }
   }
@@ -327,11 +346,13 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
     setState(() {});
 
     final d = m['details'] ?? {};
-    final events = d['events'] is List ? d['events'] as List : [];
-    final stats = d['stats'] is List ? d['stats'] as List : [];
+    final events = d['events'] is core.List ? d['events'] as core.List : [];
+    final stats = d['stats'] is core.List ? d['stats'] as core.List : [];
     final lineups = d['lineups'] ?? {};
-    final homeStarters = lineups['home'] is List ? lineups['home'] as List : [];
-    final awayStarters = lineups['away'] is List ? lineups['away'] as List : [];
+    final homeStarters =
+        lineups['home'] is core.List ? lineups['home'] as core.List : [];
+    final awayStarters =
+        lineups['away'] is core.List ? lineups['away'] as core.List : [];
 
     showModalBottomSheet(
       context: context,
@@ -596,7 +617,8 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Text(_errorMsg!, style: const TextStyle(color: Colors.grey)),
+                            Text(_errorMsg!,
+                                style: const TextStyle(color: Colors.grey)),
                             const SizedBox(height: 12),
                             ElevatedButton(
                               onPressed: () => _fetchAppData(),
@@ -625,9 +647,12 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
         unselectedItemColor: const Color(0xFF94A3B8),
         onTap: (idx) => setState(() => _currentIndex = idx),
         items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.sports_soccer), label: 'المباريات'),
-          BottomNavigationBarItem(icon: Icon(Icons.leaderboard), label: 'الترتيب'),
-          BottomNavigationBarItem(icon: Icon(Icons.emoji_events), label: 'الهدافون'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.sports_soccer), label: 'المباريات'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.leaderboard), label: 'الترتيب'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.emoji_events), label: 'الهدافون'),
           BottomNavigationBarItem(icon: Icon(Icons.article), label: 'الأخبار'),
         ],
       ),
@@ -636,24 +661,27 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
 
   Widget _buildMatchesTab() {
     final liveMatches = _matches
-        .where((m) => m is Map && ['LIVE', '1H', '2H', 'HT'].contains(m['status']))
+        .where((m) =>
+            m is core.Map && ['LIVE', '1H', '2H', 'HT'].contains(m['status']))
         .toList();
     final displayedMatches = _liveOnly
         ? liveMatches
         : _matches
-            .where((m) => m is Map && _getLocalMatchDate(m) == _selectedLocalDate)
+            .where((m) =>
+                m is core.Map && _getLocalMatchDate(m) == _selectedLocalDate)
             .toList();
 
-    final Map<String, List<dynamic>> grouped = {};
+    final core.Map<core.String, core.List<dynamic>> grouped = {};
     for (final m in displayedMatches) {
       final lg = m['league']?.toString() ?? 'بطولات متنوعة';
       grouped.putIfAbsent(lg, () => []).add(m);
     }
 
-    final Map<String, int> orderMap = {};
+    final core.Map<core.String, core.int> orderMap = {};
     for (final l in _leagues) {
-      if (l is Map && l['name'] != null) {
-        orderMap[l['name'].toString()] = (l['order'] as num?)?.toInt() ?? 99;
+      if (l is core.Map && l['name'] != null) {
+        orderMap[l['name'].toString()] =
+            (l['order'] as core.num?)?.toInt() ?? 99;
       }
     }
     final sortedLeagues = grouped.keys.toList()
@@ -676,13 +704,15 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
                 _liveOnly
                     ? '🔴 المباريات المباشرة (${displayedMatches.length})'
                     : '📅 $_selectedLocalDate (${displayedMatches.length})',
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                style:
+                    const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
               ),
               InkWell(
                 onTap: () => setState(() => _liveOnly = !_liveOnly),
                 borderRadius: BorderRadius.circular(8),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
                     color: _liveOnly
                         ? Colors.red.withOpacity(0.2)
@@ -698,7 +728,8 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
                       const SizedBox(width: 6),
                       Text(
                         'مباشر (${liveMatches.length})',
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                        style: const TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 13),
                       ),
                     ],
                   ),
@@ -729,7 +760,15 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
   }
 
   Widget _buildWeekDaysStrip() {
-    const daysAr = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
+    const daysAr = [
+      'الأحد',
+      'الإثنين',
+      'الثلاثاء',
+      'الأربعاء',
+      'الخميس',
+      'الجمعة',
+      'السبت'
+    ];
     return SizedBox(
       height: 76,
       child: ListView.separated(
@@ -738,7 +777,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
         separatorBuilder: (_, __) => const SizedBox(width: 8),
         itemBuilder: (context, index) {
           final offset = index - 2;
-          final date = DateTime.now().add(Duration(days: offset));
+          final date = core.DateTime.now().add(core.Duration(days: offset));
           final iso = _toLocalIsoDate(date);
           final label = offset == 0
               ? 'اليوم'
@@ -749,7 +788,9 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
                       : offset == -2
                           ? 'أول أمس'
                           : daysAr[date.weekday % 7];
-          final count = _matches.where((m) => m is Map && _getLocalMatchDate(m) == iso).length;
+          final count = _matches
+              .where((m) => m is core.Map && _getLocalMatchDate(m) == iso)
+              .length;
           final isSelected = !_liveOnly && iso == _selectedLocalDate;
 
           return GestureDetector(
@@ -763,20 +804,29 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
               width: 86,
               padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
               decoration: BoxDecoration(
-                color: isSelected ? const Color(0xFF2563EB) : const Color(0xFF1E293B),
+                color: isSelected
+                    ? const Color(0xFF2563EB)
+                    : const Color(0xFF1E293B),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: isSelected ? const Color(0xFF3B82F6) : const Color(0xFF334155),
+                  color: isSelected
+                      ? const Color(0xFF3B82F6)
+                      : const Color(0xFF334155),
                 ),
               ),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                  Text(iso.substring(5), style: const TextStyle(fontSize: 11, color: Colors.white70)),
+                  Text(label,
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold, fontSize: 13)),
+                  Text(iso.substring(5),
+                      style:
+                          const TextStyle(fontSize: 11, color: Colors.white70)),
                   const SizedBox(height: 2),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
                     decoration: BoxDecoration(
                       color: Colors.black26,
                       borderRadius: BorderRadius.circular(6),
@@ -792,7 +842,8 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
     );
   }
 
-  Widget _buildLeagueCard(String leagueName, List<dynamic> leagueMatches) {
+  Widget _buildLeagueCard(
+      core.String leagueName, core.List<dynamic> leagueMatches) {
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
       decoration: BoxDecoration(
@@ -811,8 +862,12 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('🏆 $leagueName', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                Text('${leagueMatches.length}', style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12)),
+                Text('🏆 $leagueName',
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold, fontSize: 14)),
+                Text('${leagueMatches.length}',
+                    style: const TextStyle(
+                        color: Color(0xFF94A3B8), fontSize: 12)),
               ],
             ),
           ),
@@ -829,9 +884,9 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
     final channel = m['channel']?.toString() ?? '';
     final commentator = m['commentator']?.toString() ?? '';
     final stadium = m['stadium']?.toString() ?? '';
-    final pulse = DateTime.now().second % 2 == 0;
+    final pulse = core.DateTime.now().second % 2 == 0;
 
-    final meta = <String>[
+    final meta = <core.String>[
       if (channel.isNotEmpty) '📺 $channel',
       if (commentator.isNotEmpty) '🎙️ $commentator',
       if (stadium.isNotEmpty) '🏟️ $stadium',
@@ -856,7 +911,8 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
                         child: Text(
                           m['home']?.toString() ?? '',
                           textAlign: TextAlign.left,
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
+                          style: const TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 13.5),
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -866,7 +922,8 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
                 ),
                 Container(
                   margin: const EdgeInsets.symmetric(horizontal: 10),
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
                     color: const Color(0xFF0F172A),
                     borderRadius: BorderRadius.circular(10),
@@ -877,11 +934,14 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
                   child: Column(
                     children: [
                       if (status == 'NS')
-                        Text(localTime, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14))
+                        Text(localTime,
+                            style: const TextStyle(
+                                fontWeight: FontWeight.bold, fontSize: 14))
                       else
                         Text(
                           '${m['scoreHome'] ?? 0} - ${m['scoreAway'] ?? 0}',
-                          style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15),
+                          style: const TextStyle(
+                              fontWeight: FontWeight.w900, fontSize: 15),
                         ),
                       const SizedBox(height: 2),
                       Text(
@@ -913,7 +973,8 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
                         child: Text(
                           m['away']?.toString() ?? '',
                           textAlign: TextAlign.right,
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
+                          style: const TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 13.5),
                         ),
                       ),
                     ],
@@ -926,7 +987,8 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
               Text(
                 meta.join(' • '),
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 11.5, color: Color(0xFF94A3B8)),
+                style:
+                    const TextStyle(fontSize: 11.5, color: Color(0xFF94A3B8)),
               ),
             ],
           ],
@@ -935,7 +997,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
     );
   }
 
-  Widget _teamLogo(String? url) {
+  Widget _teamLogo(core.String? url) {
     if (url == null || url.isEmpty) {
       return const CircleAvatar(
         radius: 13,
@@ -964,8 +1026,8 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
       return const Center(child: Text('لا تتوفر جداول ترتيب حالياً.'));
     }
 
-    final rows = (_standings[_selectedStandingLeague] is List)
-        ? (_standings[_selectedStandingLeague] as List)
+    final rows = (_standings[_selectedStandingLeague] is core.List)
+        ? (_standings[_selectedStandingLeague] as core.List)
         : [];
 
     return RefreshIndicator(
@@ -981,14 +1043,16 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
               border: Border.all(color: const Color(0xFF334155)),
             ),
             child: DropdownButtonHideUnderline(
-              child: DropdownButton<String>(
+              child: DropdownButton<core.String>(
                 value: _selectedStandingLeague,
                 isExpanded: true,
                 dropdownColor: const Color(0xFF1E293B),
                 items: leagueNames
-                    .map((name) => DropdownMenuItem(value: name, child: Text(name)))
+                    .map((name) =>
+                        DropdownMenuItem(value: name, child: Text(name)))
                     .toList(),
-                onChanged: (val) => setState(() => _selectedStandingLeague = val),
+                onChanged: (val) =>
+                    setState(() => _selectedStandingLeague = val),
               ),
             ),
           ),
@@ -1021,7 +1085,8 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
                         _teamLogo(r['logo']?.toString()),
                         const SizedBox(width: 8),
                         Text(r['team']?.toString() ?? '',
-                            style: const TextStyle(fontWeight: FontWeight.bold)),
+                            style:
+                                const TextStyle(fontWeight: FontWeight.bold)),
                       ],
                     )),
                     DataCell(Text('${r['played']}')),
@@ -1031,7 +1096,8 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
                     DataCell(Text('${r['gf']}:${r['ga']}')),
                     DataCell(Text('${r['points']}',
                         style: const TextStyle(
-                            fontWeight: FontWeight.bold, color: Color(0xFF22C55E)))),
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF22C55E)))),
                   ]);
                 }).toList(),
               ),
@@ -1048,8 +1114,8 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
       return const Center(child: Text('لا تتوفر بيانات الهدافين حالياً.'));
     }
 
-    final rows = (_topScorers[_selectedScorerLeague] is List)
-        ? (_topScorers[_selectedScorerLeague] as List)
+    final rows = (_topScorers[_selectedScorerLeague] is core.List)
+        ? (_topScorers[_selectedScorerLeague] as core.List)
         : [];
 
     return RefreshIndicator(
@@ -1065,12 +1131,13 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
               border: Border.all(color: const Color(0xFF334155)),
             ),
             child: DropdownButtonHideUnderline(
-              child: DropdownButton<String>(
+              child: DropdownButton<core.String>(
                 value: _selectedScorerLeague,
                 isExpanded: true,
                 dropdownColor: const Color(0xFF1E293B),
                 items: leagueNames
-                    .map((name) => DropdownMenuItem(value: name, child: Text(name)))
+                    .map((name) =>
+                        DropdownMenuItem(value: name, child: Text(name)))
                     .toList(),
                 onChanged: (val) => setState(() => _selectedScorerLeague = val),
               ),
@@ -1091,7 +1158,8 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
                     child: Text(
                       '${r['rank']}',
                       style: const TextStyle(
-                          color: Color(0xFF22C55E), fontWeight: FontWeight.bold),
+                          color: Color(0xFF22C55E),
+                          fontWeight: FontWeight.bold),
                     ),
                   ),
                   title: Text(r['player']?.toString() ?? '',
@@ -1121,8 +1189,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
     );
   }
 
-  // ==================== 4. تبويب الأخبار (الصورة كاملة + العنوان فقط في الخارج) ====================
-  void _openNewsDetailsSheet(dynamic item, int idx) {
+  void _openNewsDetailsSheet(dynamic item, core.int idx) {
     final newsId = (item['id'] ?? idx).toString();
     final img = (item['image'] ?? item['img'] ?? '').toString();
     final nameCtrl = TextEditingController();
@@ -1137,7 +1204,8 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
       ),
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setModalState) {
-          final serverComments = item['comments'] is List ? item['comments'] as List : [];
+          final serverComments =
+              item['comments'] is core.List ? item['comments'] as core.List : [];
           final userComments = _localNewsComments[newsId] ?? [];
           final allComments = [...serverComments, ...userComments];
 
@@ -1173,7 +1241,8 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
                           img,
                           width: double.infinity,
                           fit: BoxFit.fitWidth,
-                          errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                          errorBuilder: (_, __, ___) =>
+                              const SizedBox.shrink(),
                         ),
                       ),
                       const SizedBox(height: 12),
@@ -1228,7 +1297,8 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
                             decoration: BoxDecoration(
                               color: const Color(0xFF0F172A),
                               borderRadius: BorderRadius.circular(10),
-                              border: Border.all(color: const Color(0xFF334155)),
+                              border:
+                                  Border.all(color: const Color(0xFF334155)),
                             ),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1301,10 +1371,12 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
                               onPressed: () {
                                 final txt = commentCtrl.text.trim();
                                 if (txt.isEmpty) return;
-                                final now = DateTime.now();
+                                final now = core.DateTime.now();
                                 final timeStr =
                                     '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
-                                _localNewsComments.putIfAbsent(newsId, () => []).add({
+                                _localNewsComments
+                                    .putIfAbsent(newsId, () => [])
+                                    .add({
                                   'author': nameCtrl.text.trim().isEmpty
                                       ? 'زائر'
                                       : nameCtrl.text.trim(),
@@ -1349,9 +1421,10 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
           final item = _news[idx];
           final newsId = (item['id'] ?? idx).toString();
           final img = (item['image'] ?? item['img'] ?? '').toString();
-          final commentsCount =
-              (item['comments'] is List ? (item['comments'] as List).length : 0) +
-                  (_localNewsComments[newsId]?.length ?? 0);
+          final commentsCount = (item['comments'] is core.List
+                  ? (item['comments'] as core.List).length
+                  : 0) +
+              (_localNewsComments[newsId]?.length ?? 0);
 
           return InkWell(
             onTap: () => _openNewsDetailsSheet(item, idx),
