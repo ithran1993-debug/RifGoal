@@ -9,42 +9,75 @@ void main() {
   runApp(const RifGoalApp());
 }
 
-class RifGoalApp extends StatelessWidget {
+class RifGoalApp extends StatefulWidget {
   const RifGoalApp({super.key});
+
+  @override
+  State<RifGoalApp> createState() => _RifGoalAppState();
+}
+
+class _RifGoalAppState extends State<RifGoalApp> {
+  bool _isDark = true;
+
+  void _toggleTheme(bool val) {
+    setState(() => _isDark = val);
+  }
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'RifGoal',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData.dark().copyWith(
-        scaffoldBackgroundColor: const Color(0xFF0B1120),
-        primaryColor: const Color(0xFF22C55E),
-        cardColor: const Color(0xFF1E293B),
-        appBarTheme: const AppBarTheme(
-          backgroundColor: Color(0xFF0F172A),
-          elevation: 0,
-          centerTitle: false,
-        ),
-      ),
+      theme: _isDark
+          ? ThemeData.dark().copyWith(
+              scaffoldBackgroundColor: const Color(0xFF0B1120),
+              primaryColor: const Color(0xFF22C55E),
+              cardColor: const Color(0xFF1E293B),
+              appBarTheme: const AppBarTheme(
+                backgroundColor: Color(0xFF0F172A),
+                elevation: 0,
+                centerTitle: false,
+              ),
+            )
+          : ThemeData.light().copyWith(
+              scaffoldBackgroundColor: const Color(0xFFF4F6F9),
+              primaryColor: const Color(0xFF16A34A),
+              cardColor: Colors.white,
+              appBarTheme: const AppBarTheme(
+                backgroundColor: Colors.white,
+                foregroundColor: Color(0xFF111827),
+                elevation: 1,
+                centerTitle: false,
+              ),
+            ),
       builder: (context, child) {
         return Directionality(textDirection: TextDirection.rtl, child: child!);
       },
-      home: const MainHomeScreen(),
+      home: MainHomeScreen(
+        isDark: _isDark,
+        onThemeChanged: _toggleTheme,
+      ),
     );
   }
 }
 
 class MainHomeScreen extends StatefulWidget {
-  const MainHomeScreen({super.key});
+  final bool isDark;
+  final ValueChanged<bool> onThemeChanged;
+
+  const MainHomeScreen({
+    super.key,
+    required this.isDark,
+    required this.onThemeChanged,
+  });
 
   @override
   State<MainHomeScreen> createState() => _MainHomeScreenState();
 }
 
 class _MainHomeScreenState extends State<MainHomeScreen> {
-  static const String dataUrl =
-      'https://ithran1993-debug.github.io/rifkoora/app_data.json';
+  static const String baseUrl = 'https://ithran1993-debug.github.io/rifkoora/';
+  static const String dataUrl = '${baseUrl}app_data.json';
 
   int _currentIndex = 0;
   bool _isLoading = true;
@@ -53,7 +86,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
   Timer? _secondTickTimer;
   Timer? _liveDetailsTimer;
 
-  core.Map<String, dynamic> _settings = {'siteTitle': 'ريف جول', 'announcement': ''};
+  core.Map<String, dynamic> _settings = {'siteTitle': 'ريف كورة', 'announcement': ''};
   List<dynamic> _leagues = [];
   List<dynamic> _matches = [];
   core.Map<String, dynamic> _standings = {};
@@ -96,6 +129,37 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
     super.dispose();
   }
 
+  DateTime? _parseMatchStart(dynamic m) {
+    final ts = m['timestamp']?.toString() ?? '';
+    if (ts.isNotEmpty) {
+      final hasZone = ts.endsWith('Z') || ts.contains('+');
+      final p = DateTime.tryParse(hasZone ? ts : '${ts}Z');
+      if (p != null) return p.toUtc();
+    }
+    final d = m['date']?.toString() ?? '';
+    final t = m['time']?.toString() ?? '';
+    if (d.isNotEmpty && t.contains(':')) {
+      final localParsed = DateTime.tryParse('$d $t:00');
+      if (localParsed != null) return localParsed.toUtc();
+    }
+    return null;
+  }
+
+  bool _isMatchLive(dynamic m) {
+    final st = (m['status'] ?? '').toString().toUpperCase();
+    if (['LIVE', '1H', '2H', 'HT', 'ET', 'PEN'].contains(st)) return true;
+    if (st == 'NS') {
+      final start = _parseMatchStart(m);
+      if (start != null) {
+        final diff = DateTime.now().toUtc().difference(start);
+        if (diff.inSeconds >= 0 && diff.inMinutes <= 125) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
   void _onSecondTick() {
     if (!mounted) return;
     final now = DateTime.now();
@@ -108,22 +172,14 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
       needsRebuild = true;
     }
 
-    final nowUtc = now.toUtc();
     for (final item in _matches) {
       if (item is! core.Map) continue;
-      final status = item['status']?.toString() ?? 'NS';
-      if (status == 'NS' && item['timestamp'] != null) {
-        final ts = item['timestamp'].toString();
-        final start = DateTime.tryParse(ts.endsWith('Z') ? ts : '${ts}Z');
-        if (start != null &&
-            nowUtc.isAfter(start) &&
-            nowUtc.difference(start).inHours < 2) {
+      if (_isMatchLive(item)) {
+        if ((item['status'] ?? 'NS').toString().toUpperCase() == 'NS') {
           item['status'] = 'LIVE';
           item['scoreHome'] ??= 0;
           item['scoreAway'] ??= 0;
-          needsRebuild = true;
         }
-      } else if (['LIVE', '1H', '2H', 'HT'].contains(status)) {
         needsRebuild = true;
       }
     }
@@ -132,11 +188,9 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
   }
 
   String _computeLiveMinute(dynamic m) {
-    final rawMin = (m['minute'] ?? '').toString();
+    final rawMin = (m['minute'] ?? '').toString().trim();
     if (rawMin.contains('+')) return rawMin;
-    final ts = (m['timestamp'] ?? '').toString();
-    if (ts.isEmpty) return rawMin.isNotEmpty ? rawMin : '';
-    final start = DateTime.tryParse(ts.endsWith('Z') ? ts : '${ts}Z');
+    final start = _parseMatchStart(m);
     if (start == null) return rawMin;
     final diffMin = DateTime.now().toUtc().difference(start).inMinutes;
     if (diffMin < 0) return '';
@@ -146,6 +200,21 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
     if (secondHalf <= 90) return "$secondHalf'";
     if (secondHalf <= 105) return "90+${secondHalf - 90}'";
     return rawMin;
+  }
+
+  String _resolveNewsImage(dynamic item) {
+    String raw = (item['image'] ??
+            item['img'] ??
+            item['imageUrl'] ??
+            item['photo'] ??
+            '')
+        .toString()
+        .trim();
+    if (raw.isEmpty) return '';
+    if (raw.startsWith('//')) return 'https:$raw';
+    if (raw.startsWith('/')) return '$baseUrl${raw.substring(1)}';
+    if (!raw.startsWith('http')) return '$baseUrl$raw';
+    return raw;
   }
 
   Future<void> _fetchSingleMatchDetails(dynamic m) async {
@@ -226,7 +295,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
         .where((m) =>
             m is core.Map &&
             _getLocalMatchDate(m) == todayIso &&
-            ['LIVE', '1H', '2H', 'HT'].contains(m['status']))
+            _isMatchLive(m))
         .take(15)
         .toList();
 
@@ -246,24 +315,17 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
   }
 
   String _getLocalMatchDate(dynamic match) {
-    final ts = match['timestamp']?.toString();
-    if (ts != null && ts.isNotEmpty) {
-      final parsed = DateTime.tryParse(ts.endsWith('Z') ? ts : '${ts}Z');
-      if (parsed != null) return _toLocalIsoDate(parsed);
-    }
+    final parsed = _parseMatchStart(match);
+    if (parsed != null) return _toLocalIsoDate(parsed);
     return match['date']?.toString() ?? _selectedLocalDate;
   }
 
   String _getLocalMatchTime(dynamic match) {
-    final ts = match['timestamp']?.toString();
-    if (ts != null && ts.isNotEmpty) {
-      final parsed =
-          DateTime.tryParse(ts.endsWith('Z') ? ts : '${ts}Z')?.toLocal();
-      if (parsed != null) {
-        final h = parsed.hour.toString().padLeft(2, '0');
-        final m = parsed.minute.toString().padLeft(2, '0');
-        return '$h:$m';
-      }
+    final parsed = _parseMatchStart(match)?.toLocal();
+    if (parsed != null) {
+      final h = parsed.hour.toString().padLeft(2, '0');
+      final m = parsed.minute.toString().padLeft(2, '0');
+      return '$h:$m';
     }
     return match['time']?.toString() ?? '20:00';
   }
@@ -323,6 +385,71 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
     }
   }
 
+  // ==================== نافذة الإعدادات (مكان الدائرة أعلى اليسار) ====================
+  void _openSettingsSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1E293B),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => StatefulBuilder(
+        builder: (ctx, setSheetState) => Directionality(
+          textDirection: TextDirection.rtl,
+          child: Padding(
+            padding: const EdgeInsets.all(18),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 14),
+                  decoration: BoxDecoration(
+                    color: Colors.white24,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+                const Text(
+                  '⚙️ إعدادات التطبيق',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+                const SizedBox(height: 14),
+                SwitchListTile(
+                  activeColor: const Color(0xFF22C55E),
+                  secondary: const Icon(Icons.dark_mode, color: Color(0xFF22C55E)),
+                  title: const Text('الوضع الليلي الداكن',
+                      style: TextStyle(fontWeight: FontWeight.bold)),
+                  value: widget.isDark,
+                  onChanged: (val) {
+                    widget.onThemeChanged(val);
+                    setSheetState(() {});
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.refresh, color: Color(0xFF22C55E)),
+                  title: const Text('تحديث النتائج والبيانات الآن',
+                      style: TextStyle(fontWeight: FontWeight.bold)),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _fetchAppData();
+                    _pollLiveMatchesFromFotMob();
+                  },
+                ),
+                const ListTile(
+                  leading: Icon(Icons.info_outline, color: Color(0xFF94A3B8)),
+                  title: Text('إصدار التطبيق'),
+                  trailing: Text('RifGoal 3.3 Live',
+                      style: TextStyle(color: Color(0xFF94A3B8))),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   void _openMatchDetailsSheet(dynamic m) async {
     await _fetchSingleMatchDetails(m);
     if (!mounted) return;
@@ -334,6 +461,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
     final lineups = d['lineups'] ?? {};
     final homeStarters = lineups['home'] is List ? lineups['home'] as List : [];
     final awayStarters = lineups['away'] is List ? lineups['away'] as List : [];
+    final isLive = _isMatchLive(m);
 
     showModalBottomSheet(
       context: context,
@@ -391,7 +519,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
                   Column(
                     children: [
                       Text(
-                        m['status'] == 'NS'
+                        (!isLive && m['status'] == 'NS')
                             ? _getLocalMatchTime(m)
                             : '${m['scoreHome'] ?? 0} - ${m['scoreAway'] ?? 0}',
                         style: const TextStyle(
@@ -399,7 +527,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        ['LIVE', '1H', '2H', 'HT'].contains(m['status'])
+                        isLive
                             ? 'مباشر ${_computeLiveMinute(m)}'
                             : (m['status'] == 'FT' ? 'انتهت' : 'لم تبدأ'),
                         style: const TextStyle(
@@ -533,7 +661,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
   Widget build(BuildContext context) {
     final title = _settings['siteTitle']?.toString().isNotEmpty == true
         ? _settings['siteTitle'].toString()
-        : 'RifGoal';
+        : 'ريف كورة';
     final announcement = _settings['announcement']?.toString() ?? '';
 
     return Scaffold(
@@ -563,11 +691,9 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: () {
-              _fetchAppData();
-              _pollLiveMatchesFromFotMob();
-            },
+            icon: const Icon(Icons.settings),
+            tooltip: 'الإعدادات',
+            onPressed: _openSettingsSheet,
           ),
         ],
       ),
@@ -638,7 +764,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
 
   Widget _buildMatchesTab() {
     final liveMatches = _matches
-        .where((m) => m is core.Map && ['LIVE', '1H', '2H', 'HT'].contains(m['status']))
+        .where((m) => m is core.Map && _isMatchLive(m))
         .toList();
     final displayedMatches = _liveOnly
         ? liveMatches
@@ -825,13 +951,14 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
   }
 
   Widget _buildMatchRow(dynamic m) {
-    final status = m['status']?.toString() ?? 'NS';
-    final isLive = ['LIVE', '1H', '2H', 'HT'].contains(status);
+    final status = (m['status'] ?? 'NS').toString().toUpperCase();
+    final isLive = _isMatchLive(m);
     final localTime = _getLocalMatchTime(m);
     final channel = m['channel']?.toString() ?? '';
     final commentator = m['commentator']?.toString() ?? '';
     final stadium = m['stadium']?.toString() ?? '';
     final pulse = DateTime.now().second % 2 == 0;
+    final minStr = _computeLiveMinute(m);
 
     final meta = <String>[
       if (channel.isNotEmpty) '📺 $channel',
@@ -878,7 +1005,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
                   ),
                   child: Column(
                     children: [
-                      if (status == 'NS')
+                      if (!isLive && status == 'NS')
                         Text(localTime, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14))
                       else
                         Text(
@@ -886,22 +1013,33 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
                           style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15),
                         ),
                       const SizedBox(height: 2),
-                      Text(
-                        isLive
-                            ? 'مباشر ${_computeLiveMinute(m)}${pulse ? ' •' : ''}'
-                            : status == 'FT'
-                                ? 'انتهت'
-                                : 'لم تبدأ',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                          color: isLive
-                              ? Colors.redAccent
-                              : status == 'FT'
-                                  ? const Color(0xFF94A3B8)
-                                  : const Color(0xFF60A5FA),
+                      if (isLive)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: Colors.red.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            'مباشر ${minStr.isNotEmpty ? minStr : ''}${pulse ? ' •' : ''}',
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.redAccent,
+                            ),
+                          ),
+                        )
+                      else
+                        Text(
+                          status == 'FT' ? 'انتهت' : 'لم تبدأ',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: status == 'FT'
+                                ? const Color(0xFF94A3B8)
+                                : const Color(0xFF60A5FA),
+                          ),
                         ),
-                      ),
                     ],
                   ),
                 ),
@@ -1125,7 +1263,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
 
   void _openNewsDetailsSheet(dynamic item, int idx) {
     final newsId = (item['id'] ?? idx).toString();
-    final img = (item['image'] ?? item['img'] ?? '').toString();
+    final img = _resolveNewsImage(item);
     final nameCtrl = TextEditingController();
     final commentCtrl = TextEditingController();
 
@@ -1174,6 +1312,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
                           img,
                           width: double.infinity,
                           fit: BoxFit.fitWidth,
+                          headers: const {'User-Agent': 'Mozilla/5.0'},
                           errorBuilder: (_, __, ___) => const SizedBox.shrink(),
                         ),
                       ),
@@ -1349,7 +1488,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
         itemBuilder: (context, idx) {
           final item = _news[idx];
           final newsId = (item['id'] ?? idx).toString();
-          final img = (item['image'] ?? item['img'] ?? '').toString();
+          final img = _resolveNewsImage(item);
           final commentsCount =
               (item['comments'] is List ? (item['comments'] as List).length : 0) +
                   (_localNewsComments[newsId]?.length ?? 0);
@@ -1372,6 +1511,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
                       img,
                       width: double.infinity,
                       fit: BoxFit.fitWidth,
+                      headers: const {'User-Agent': 'Mozilla/5.0'},
                       errorBuilder: (_, __, ___) => const SizedBox.shrink(),
                     ),
                   Padding(
