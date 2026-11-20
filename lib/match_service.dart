@@ -37,6 +37,7 @@ class MatchService {
           endpoint,
           headers: {
             'Accept': 'application/json',
+            'X-App-Key': 'RIFKOORA_APP_2026_SECURE',
           },
         )
         .timeout(ApiConfig.timeout);
