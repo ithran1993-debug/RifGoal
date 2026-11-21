@@ -76,8 +76,9 @@ class MainHomeScreen extends StatefulWidget {
 }
 
 class _MainHomeScreenState extends State<MainHomeScreen> {
-  static const String baseUrl = 'https://ithran1993-debug.github.io/rifkoora/';
-  static const String dataUrl = '${baseUrl}app_data.json';
+  static const String baseUrl = 'https://rifkoora.pages.dev/';
+  static const String proxyBaseUrl = 'https://rifgoal-proxy.ithran1993.workers.dev';
+  static const String dataUrl = '$proxyBaseUrl/';
 
   int _currentIndex = 0;
   bool _isLoading = true;
@@ -116,8 +117,8 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
       (_) => _onSecondTick(),
     );
     _liveDetailsTimer = Timer.periodic(
-      const Duration(seconds: 15),
-      (_) => _pollLiveMatchesFromFotMob(),
+      const Duration(seconds: 20),
+      (_) => _pollLiveMatchesFrom365(),
     );
   }
 
@@ -189,9 +190,9 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
 
   String _computeLiveMinute(dynamic m) {
     final rawMin = (m['minute'] ?? '').toString().trim();
-    if (rawMin.contains('+')) return rawMin;
+    if (rawMin.isNotEmpty) return rawMin;
     final start = _parseMatchStart(m);
-    if (start == null) return rawMin;
+    if (start == null) return '';
     final diffMin = DateTime.now().toUtc().difference(start).inMinutes;
     if (diffMin < 0) return '';
     if (diffMin <= 45) return "${diffMin < 1 ? 1 : diffMin}'";
@@ -199,7 +200,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
     final secondHalf = diffMin - 15;
     if (secondHalf <= 90) return "$secondHalf'";
     if (secondHalf <= 105) return "90+${secondHalf - 90}'";
-    return rawMin;
+    return '';
   }
 
   String _resolveNewsImage(dynamic item) {
@@ -217,93 +218,141 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
     return raw;
   }
 
+  Future<void> _pollLiveMatchesFrom365() async {
+    final todayIso = _toLocalIsoDate(DateTime.now());
+    final hasToday = _matches.any(
+      (m) => m is core.Map && _getLocalMatchDate(m) == todayIso,
+    );
+    if (!hasToday) return;
+
+    try {
+      final parts = todayIso.split('-');
+      final dateParam = '${parts[2]}/${parts[1]}/${parts[0]}';
+      final uri = Uri.parse('$proxyBaseUrl/365/today?date=$dateParam');
+      final res = await http.get(uri).timeout(const Duration(seconds: 12));
+
+      if (res.statusCode != 200) return;
+      final json = jsonDecode(utf8.decode(res.bodyBytes));
+      final games = json['games'] is List ? json['games'] as List : [];
+      if (games.isEmpty) return;
+
+      final core.Map<String, dynamic> gameMap = {
+        for (final g in games)
+          if (g is core.Map && g['id'] != null) g['id'].toString(): g
+      };
+
+      bool changed = false;
+      for (final m in _matches) {
+        if (m is! core.Map) continue;
+        final g = gameMap[m['id']?.toString() ?? ''];
+        if (g == null) continue;
+
+        final statusGroup = g['statusGroup'];
+        final newStatus = statusGroup == 3
+            ? 'LIVE'
+            : (statusGroup == 4 ? 'FT' : 'NS');
+        if (newStatus != 'NS') {
+          final homeComp = g['homeCompetitor'] ?? {};
+          final awayComp = g['awayCompetitor'] ?? {};
+          final newHome = (homeComp['score'] as num?)?.toInt() ?? 0;
+          final newAway = (awayComp['score'] as num?)?.toInt() ?? 0;
+          final newMin = newStatus == 'LIVE'
+              ? (g['gameTimeDisplay']?.toString() ??
+                  (g['gameTime'] != null ? "${g['gameTime']}'" : 'مباشر'))
+              : null;
+
+          if (m['status'] != newStatus ||
+              m['scoreHome'] != newHome ||
+              m['scoreAway'] != newAway ||
+              m['minute'] != newMin) {
+            m['status'] = newStatus;
+            m['scoreHome'] = newHome;
+            m['scoreAway'] = newAway;
+            m['minute'] = newMin;
+            changed = true;
+          }
+        }
+      }
+
+      if (changed && mounted) setState(() {});
+    } catch (_) {}
+  }
+
   Future<void> _fetchSingleMatchDetails(dynamic m) async {
     final id = m['id']?.toString();
     if (id == null || id.isEmpty) return;
 
     try {
-      final uri = Uri.parse(
-        'https://www.fotmob.com/api/matchDetails?matchId=$id&ccode3=MAR',
-      );
-      final res = await http.get(uri, headers: {
-        'Accept-Language': 'ar-MA,ar;q=0.9',
-        'Cookie': 'fotmob_lang=ar; ccode3=MAR',
-      }).timeout(const Duration(seconds: 10));
+      final uri = Uri.parse('$proxyBaseUrl/365/match?id=$id');
+      final res = await http.get(uri).timeout(const Duration(seconds: 12));
 
       if (res.statusCode != 200) return;
       final json = jsonDecode(utf8.decode(res.bodyBytes));
-      final header = json['header'] ?? {};
-      final teams = header['teams'] is List ? header['teams'] : [];
-      final statusObj = header['status'] ?? {};
+      final g = json['game'] ?? json;
+      if (g is! core.Map) return;
 
-      if (teams.length >= 2) {
-        m['scoreHome'] = teams[0]['score'] ?? m['scoreHome'] ?? 0;
-        m['scoreAway'] = teams[1]['score'] ?? m['scoreAway'] ?? 0;
-        m['status'] = statusObj['finished'] == true
-            ? 'FT'
-            : (statusObj['started'] == true ? 'LIVE' : m['status']);
-        m['minute'] = statusObj['liveTime']?['short'] ?? m['minute'];
+      final homeComp = g['homeCompetitor'] ?? {};
+      final awayComp = g['awayCompetitor'] ?? {};
+      final homeId = homeComp['id'];
+      final statusGroup = g['statusGroup'];
+
+      if (statusGroup == 3 || statusGroup == 4) {
+        m['status'] = statusGroup == 3 ? 'LIVE' : 'FT';
+        m['scoreHome'] = (homeComp['score'] as num?)?.toInt() ?? m['scoreHome'] ?? 0;
+        m['scoreAway'] = (awayComp['score'] as num?)?.toInt() ?? m['scoreAway'] ?? 0;
+        if (statusGroup == 3) {
+          m['minute'] = g['gameTimeDisplay']?.toString() ?? m['minute'];
+        }
       }
 
-      final content = json['content'] ?? {};
-      final rawEvents = content['matchFacts']?['events']?['events'] ?? [];
-      final infoBox = content['matchFacts']?['infoBox'] ?? {};
-      final topStats = content['stats']?['Periods']?['All']?['stats'] ?? [];
-      final statsItems =
-          (topStats is List && topStats.isNotEmpty) ? (topStats[0]['stats'] ?? []) : [];
-      final lineup = content['lineup'] ?? {};
+      final venue = g['venue'] is core.Map ? (g['venue']['name']?.toString() ?? '') : '';
+      if (venue.isNotEmpty) m['stadium'] = venue;
 
-      final stadiumName = infoBox['Stadium']?['name']?.toString() ?? '';
-      if (stadiumName.isNotEmpty) m['stadium'] = stadiumName;
+      final rawEvents = g['events'] is List ? g['events'] as List : [];
+      final mappedEvents = rawEvents.map((e) {
+        final typeName = (e['eventType']?['name'] ?? '').toString();
+        final isRed = typeName.contains('حمراء') || typeName.toLowerCase().contains('red');
+        final isCard = isRed || typeName.contains('بطاقة') || typeName.toLowerCase().contains('card');
+        return {
+          'time': e['gameTimeDisplay'] ?? "${e['gameTime'] ?? ''}'",
+          'type': isCard ? (isRed ? 'red_card' : 'yellow_card') : 'goal',
+          'player': e['playerName'] ?? '',
+          'isHome': e['competitorId'] == homeId,
+        };
+      }).toList();
+
+      final rawStats = g['statistics'] is List ? g['statistics'] as List : [];
+      final mappedStats = rawStats.map((s) {
+        return {
+          'title': s['name'] ?? '',
+          'home': s['homeValue'] ?? '0',
+          'away': s['awayValue'] ?? '0',
+        };
+      }).toList();
+
+      List<dynamic> mapLineup(dynamic comp) {
+        final members = comp?['lineups']?['members'] is List
+            ? comp['lineups']['members'] as List
+            : [];
+        return members
+            .where((p) => p['status'] == 1)
+            .map((p) => {
+                  'number': p['jerseyNumber'] ?? '',
+                  'name': p['name'] ?? '',
+                })
+            .toList();
+      }
 
       m['details'] = {
-        'stadium': stadiumName,
-        'referee': infoBox['Referee']?['text']?.toString() ?? '',
-        'events': (rawEvents is List ? rawEvents : [])
-            .where((e) => e['type'] == 'Goal' || e['type'] == 'Card')
-            .map((e) => {
-                  'time': e['timeStr'] ?? "${e['time']}'",
-                  'type': e['type'] == 'Goal'
-                      ? 'goal'
-                      : (e['card'] == 'Red' ? 'red_card' : 'yellow_card'),
-                  'player': e['player']?['name'] ?? e['nameStr'] ?? '',
-                  'isHome': e['isHome'] == true,
-                })
-            .toList(),
-        'stats': (statsItems is List ? statsItems : [])
-            .map((s) => {
-                  'title': s['title'] ?? '',
-                  'home': (s['stats'] is List && s['stats'].isNotEmpty) ? s['stats'][0] : '',
-                  'away': (s['stats'] is List && s['stats'].length > 1) ? s['stats'][1] : '',
-                })
-            .toList(),
+        'stadium': venue,
+        'events': mappedEvents,
+        'stats': mappedStats,
         'lineups': {
-          'home': (lineup['homeTeam']?['starters'] is List ? lineup['homeTeam']['starters'] : [])
-              .map((p) => {'number': p['shirtNumber'], 'name': p['name']})
-              .toList(),
-          'away': (lineup['awayTeam']?['starters'] is List ? lineup['awayTeam']['starters'] : [])
-              .map((p) => {'number': p['shirtNumber'], 'name': p['name']})
-              .toList(),
-        }
+          'home': mapLineup(homeComp),
+          'away': mapLineup(awayComp),
+        },
       };
     } catch (_) {}
-  }
-
-  Future<void> _pollLiveMatchesFromFotMob() async {
-    final todayIso = _toLocalIsoDate(DateTime.now());
-    final liveList = _matches
-        .where((m) =>
-            m is core.Map &&
-            _getLocalMatchDate(m) == todayIso &&
-            _isMatchLive(m))
-        .take(15)
-        .toList();
-
-    if (liveList.isEmpty) return;
-    for (final m in liveList) {
-      await _fetchSingleMatchDetails(m);
-    }
-    if (mounted) setState(() {});
   }
 
   String _toLocalIsoDate(DateTime dt) {
@@ -317,7 +366,8 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
   String _getLocalMatchDate(dynamic match) {
     final parsed = _parseMatchStart(match);
     if (parsed != null) return _toLocalIsoDate(parsed);
-    return match['date']?.toString() ?? _selectedLocalDate;
+    final rawDate = match['date']?.toString() ?? _selectedLocalDate;
+    return rawDate.length >= 10 ? rawDate.substring(0, 10) : rawDate;
   }
 
   String _getLocalMatchTime(dynamic match) {
@@ -372,7 +422,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
           _isLoading = false;
         });
 
-        _pollLiveMatchesFromFotMob();
+        _pollLiveMatchesFrom365();
       } else {
         throw Exception('HTTP ${response.statusCode}');
       }
@@ -385,7 +435,6 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
     }
   }
 
-  // ==================== نافذة الإعدادات (مكان الدائرة أعلى اليسار) ====================
   void _openSettingsSheet() {
     showModalBottomSheet(
       context: context,
@@ -433,13 +482,12 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
                   onTap: () {
                     Navigator.pop(ctx);
                     _fetchAppData();
-                    _pollLiveMatchesFromFotMob();
                   },
                 ),
                 const ListTile(
                   leading: Icon(Icons.info_outline, color: Color(0xFF94A3B8)),
                   title: Text('إصدار التطبيق'),
-                  trailing: Text('RifGoal 3.3 Live',
+                  trailing: Text('RifGoal 3.8 Live',
                       style: TextStyle(color: Color(0xFF94A3B8))),
                 ),
               ],
@@ -788,10 +836,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
       ..sort((a, b) => (orderMap[a] ?? 99).compareTo(orderMap[b] ?? 99));
 
     return RefreshIndicator(
-      onRefresh: () async {
-        await _fetchAppData();
-        await _pollLiveMatchesFromFotMob();
-      },
+      onRefresh: () => _fetchAppData(),
       child: ListView(
         padding: const EdgeInsets.all(12),
         children: [
